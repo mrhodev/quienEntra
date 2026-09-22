@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "quienJuega",
+  title: "quienEntra",
   description: "Rotaciones equitativas y estadísticas de minutos para tu equipo de fútbol.",
 };
 

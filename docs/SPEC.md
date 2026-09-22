@@ -1,4 +1,4 @@
-# quienJuega — Especificación funcional y técnica
+# quienEntra — Especificación funcional y técnica
 
 > Documento base para desarrollo guiado por especificación (spec-driven development).
 > Cada requisito tiene un ID (`RF-xx`, `RNF-xx`) para referenciarlo desde issues, commits y tests.
@@ -123,7 +123,7 @@ Es un SaaS multiusuario: cualquier DT puede registrarse y crear sus equipos.
   - **Ficha de jugador**: nombre, número y posiciones, minutos totales, porcentaje jugado, partidos, goles y un gráfico de barras con los minutos por partido.
 - **RF-37** **Diseño y generación de la infografía**:
   - Formatos: **4:5 (1080×1350)** para chats y feed, y **9:16 (1080×1920)** para historias. Se elige antes de compartir, con una vista previa.
-  - Estilo: usa el color del equipo, tipografía grande, cifras destacadas y los gráficos de la app en versión simplificada, con marca discreta "quienJuega" al pie. Tiene que leerse bien en el celular sin hacer zoom.
+  - Estilo: usa el color del equipo, tipografía grande, cifras destacadas y los gráficos de la app en versión simplificada, con marca discreta "quienEntra" al pie. Tiene que leerse bien en el celular sin hacer zoom.
   - Planteles grandes (hasta 25 jugadores): el diseño se adapta, con filas más compactas o dos columnas, sin cortar jugadores.
   - Se genera **en el cliente** y funciona sin conexión. La infografía se arma como un componente con SVG de tamaño fijo y se convierte a PNG con una librería liviana (`modern-screenshot` o `html-to-image`) que se carga solo al exportar.
   - Se comparte con la Web Share API (WhatsApp, Instagram, etc.). Si el navegador no la soporta, se descarga el PNG.

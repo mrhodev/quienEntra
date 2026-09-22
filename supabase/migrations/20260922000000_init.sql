@@ -1,4 +1,4 @@
--- quienJuega: esquema inicial (spec §7.3, §7.4)
+-- quienEntra: esquema inicial (spec §7.3, §7.4)
 -- Todas las tablas usan ids generados en el cliente (offline-first) y soft delete.
 
 create extension if not exists pgcrypto;

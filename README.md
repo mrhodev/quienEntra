@@ -1,4 +1,4 @@
-# quienJuega
+# quienEntra
 
 Web app mobile-first para repartir equitativamente los minutos de juego de un equipo de fútbol, con sugerencias de cambio en vivo y estadísticas por torneo.
 
