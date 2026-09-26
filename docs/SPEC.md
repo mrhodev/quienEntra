@@ -2,7 +2,7 @@
 
 > Documento base para desarrollo guiado por especificación (spec-driven development).
 > Cada requisito tiene un ID (`RF-xx`, `RNF-xx`) para referenciarlo desde issues, commits y tests.
-> Versión 1.2 · 2026-09-22
+> Versión 1.3 · 2026-09-26
 
 ---
 
@@ -148,13 +148,13 @@ Es un SaaS multiusuario: cualquier DT puede registrarse y crear sus equipos.
 ## 5. Requisitos no funcionales
 
 - **RNF-01 Mobile-first**: diseñada para 360–430 px de ancho, usable con una mano y con objetivos táctiles de al menos 44 px. En escritorio se ve centrada.
-- **RNF-02 Liviana**: JS inicial de la ruta de partido en vivo por debajo de 150 KB gzip. LCP por debajo de 2 s en 4G.
-- **RNF-03 Transiciones**: animaciones de 150–300 ms en cambios de vista, al entrar o salir jugadores (layout animations) y en las tarjetas de sugerencia. Se respeta `prefers-reduced-motion`.
+- **RNF-02 Liviana**: el JS propio de la ruta de partido en vivo no supera los 60 KB gzip por encima del framework (medido en la beta: 224 KB en total, de los cuales 170 KB son Next.js 16 + React 19 en una página vacía; la meta original de 150 KB totales está por debajo de ese piso). Supabase y la captura de infografías se cargan a demanda, fuera del JS inicial. LCP por debajo de 2 s en 4G.
+- **RNF-03 Transiciones**: animaciones de 150–300 ms en cambios de vista, al entrar o salir jugadores (View Transitions API, sin librerías) y en las tarjetas de sugerencia (CSS). Se respeta `prefers-reduced-motion`. En navegadores sin View Transitions, el cambio es inmediato.
 - **RNF-04 Legibilidad al sol**: alto contraste, tema claro por defecto y tema oscuro opcional. Números grandes en el cronómetro.
 - **RNF-05 Precisión del cronómetro**: el tiempo se calcula a partir de marcas de tiempo (`Date.now()`) y no de contadores de `setInterval`. Sobrevive al bloqueo de pantalla, a pasar la app a segundo plano y a recargar la página, con un error menor a 1 s.
 - **RNF-06 Seguridad**: Row Level Security en todas las tablas. La vista pública accede solo mediante funciones o vistas que filtran por equipo público.
 - **RNF-07 Costo cero**: debe caber en los límites gratuitos de Vercel Hobby y Supabase Free (500 MB de base de datos, 50k usuarios activos por mes).
-- **RNF-08 Idioma**: español (es-AR) en v1, con los textos centralizados para poder traducir más adelante.
+- **RNF-08 Idioma**: español (es-AR) en v1, con los textos centralizados para poder traducir más adelante. *Pendiente después de la beta*: los textos todavía están en cada componente.
 - **RNF-09 Accesibilidad**: WCAG AA en contraste. Los estados no se comunican solo con color: también con icono o texto.
 
 ---
@@ -252,6 +252,9 @@ type RotationPlan = {
 ### 6.4 En vivo
 - Con cada evento relevante (RF-20) se vuelve a ejecutar el planificador con `nowMin`, `playedSoFar` y `onFieldNow` reales. Las ventanas pasadas quedan fijas.
 - **Disparo de sugerencias**: al alcanzar `startMin` de una ventana con `subs` no vacíos, o si algún jugador en cancha supera su `T_i` por más de `b/2` y hay alguien en el banco con `need > b/2`.
+- **Sugerencias estables durante la ventana** (`lib/match/boundary.ts`): en vivo el plan se recalcula en el **inicio de la ventana en curso**, con lo jugado hasta ese momento y la cancha actual. Así la tarjeta no cambia mientras dura la ventana (se puede posponer 1 o 2 minutos, descartar o editar) y los cambios que el DT ya hizo desde el inicio de la ventana cuentan como hechos. En el entretiempo, la ventana es la del inicio del período siguiente.
+- **Llegadas tarde**: mientras no se lo marca como disponible, se espera al jugador para su hora estimada y nunca antes de la próxima ventana. Al marcarlo, está disponible desde ese minuto (CA-06).
+- **Lesión**: el jugador sale al instante y deja de estar disponible; el lugar vacío se completa con prioridad en la ventana en curso (CA-05).
 
 ### 6.5 Criterios de aceptación del motor
 - **CA-R1**: con un pool homogéneo, todos disponibles todo el partido y sin locks, `maxSpread ≤ b`.
@@ -274,13 +277,13 @@ type RotationPlan = {
 | Capa | Tecnología | Motivo |
 |---|---|---|
 | Framework | **Next.js** (App Router, TypeScript, última estable) | Nativo en Vercel. |
-| Estilos | **Tailwind CSS** + componentes propios sobre **Radix UI** (o shadcn/ui) | Liviano y accesible. |
-| Animaciones | **Motion** (ex Framer Motion), `LazyMotion` + `domAnimation` | Layout animations para entradas y salidas; se carga solo lo necesario. |
+| Estilos | **Tailwind CSS** + componentes propios; las hojas modales usan `<dialog>` nativo (foco, Escape y fondo inerte los da el navegador) | Liviano y accesible, sin dependencias. |
+| Animaciones | CSS + **View Transitions API** | Jugador ↔ banco y tarjetas sin sumar JS (se probó Motion: agregaba ~35 KB gzip a la ruta en vivo). |
 | BBDD + Auth | **Supabase** (Postgres, Auth, RLS) | Gratis, SQL cómodo para estadísticas. |
 | Local / offline | **Dexie** (IndexedDB) + cola de sincronización propia | Log de eventos local. |
-| PWA | **Serwist** (service worker para Next.js) | Precache del shell y rutas offline. |
-| Estado cliente | Zustand (UI) + `dexie-react-hooks` (`useLiveQuery`) | Simple y reactivo. |
-| Validación | Zod | Esquemas compartidos entre cliente y servidor. |
+| PWA | Service worker propio (`public/sw.js`) + `app/manifest.ts` | Al instalarse guarda todas las pantallas (son estáticas) y sus scripts, incluidos los que se cargan a demanda. Serwist se integra con webpack y esta versión de Next compila con Turbopack. |
+| Estado cliente | `dexie-react-hooks` (`useLiveQuery`) + estado de React; preferencias del dispositivo en `localStorage` | Alcanzó sin Zustand. |
+| Validación | Zod (instalado; no hizo falta en v1: no hay endpoints propios que reciban datos) | |
 | Gráficos | SVG propio para mapa de calor y Gantt; librería liviana solo si hace falta | Mantiene bajo el bundle. |
 | Tests | Vitest + fast-check (motor), Playwright (flujos E2E en viewport móvil) | |
 | Hosting | Vercel Hobby | Gratis. |
@@ -293,8 +296,12 @@ UI ──► Store local (Dexie) ──► Outbox ──(online)──► Supaba
 ```
 - **Toda escritura va primero a Dexie**, y la UI nunca espera a la red.
 - El outbox envía en orden. Si falla, reintenta con *backoff* exponencial y también con los eventos `online` y `visibilitychange`.
-- El pull es incremental por tabla, usando `updated_at` más un cursor guardado localmente.
-- Las páginas públicas (`/p/[slug]`) son Server Components que consultan Supabase directamente, con ISR y revalidación de 60 s. No usan offline.
+- El pull es incremental por tabla, usando `updated_at` más un cursor guardado localmente, con 10 s de solapamiento para no perder filas confirmadas justo antes del cursor.
+- `created_at` y `updated_at` los pone el servidor (no se envían): el cursor no depende del reloj de cada dispositivo. *Last-write-wins* (RF-35) es por orden de llegada al servidor.
+- Una fila con cambios locales pendientes no se pisa al descargar: gana la versión local, que se envía en el próximo push. Varias ediciones sin conexión de la misma fila se envían una sola vez, con la última versión.
+- Los eventos se envían con `ignoreDuplicates`: un reintento nunca duplica ni pisa un evento (CA-03).
+- Al entrar con otro usuario en el mismo dispositivo, se borran los datos locales del anterior.
+- Las páginas públicas (`/p/[slug]`) son Server Components que consultan Supabase directamente **en cada visita**, sin ISR: con ISR, la primera visita después de desactivar o regenerar el link todavía recibía la página vieja, y CA-07 exige que el link anterior dé 404 al instante. No usan offline.
 
 ### 7.3 Modelo de datos (Postgres)
 
@@ -327,24 +334,34 @@ match_player_stats (match_id, player_id, field_seconds, goalkeeper_seconds, targ
 
 ### 7.4 Seguridad (RLS)
 - Todas las tablas tienen RLS habilitado. Política de acceso: `team_id in (select team_id from team_members where user_id = auth.uid())`.
-- Acceso público: función `security definer` `public_team_stats(slug)` (una fila por partido × jugador, incluidos los stints para la línea de tiempo) que devuelve datos solo si `teams.is_public = true`, y únicamente de partidos con `status = 'finished'`. El rol `anon` no tiene acceso directo a las tablas.
+- Acceso público: función `security definer` `public_team_info(slug)` (nombre y color, para mostrar la página aunque todavía no haya partidos finalizados) y `public_team_stats(slug)` (una fila por partido × jugador, incluidos los stints para la línea de tiempo) que devuelve datos solo si `teams.is_public = true`, y únicamente de partidos con `status = 'finished'`. El rol `anon` no tiene acceso directo a las tablas.
 
 ### 7.5 Estructura del repositorio
 ```
 /app
-  /(auth)/login
-  /(app)/equipos/[teamId]/...
-        plantel, torneos/[tournamentId], partidos/[matchId]/{previa,vivo,resumen}, estadisticas
+  /login, /auth/callback         -- ingreso (link por email o Google)
+  /(app)/bienvenida              -- onboarding
+  /(app)/partidos                -- partidos del torneo actual
+  /(app)/partido/{previa,vivo,resumen}?id=…
+  /(app)/plantel, /estadisticas, /ajustes
   /p/[slug]                      -- público
+  /api/keepalive                 -- cron diario (§11)
+  /demo, /demo/en-vivo           -- planificador y simulador sin cuenta
 /lib
   /rotation                      -- motor puro + tests
-  /match                         -- eventos, derivación a stints/minutos, cronómetro
-  /db (dexie schema, sync)
-  /supabase (clients, types generados)
+  /match                         -- eventos, derivación, cronómetro, entrada del motor en vivo, sugerencias
+  /stats                         -- estadísticas del partido y del torneo (puro)
+  /roster                        -- alta rápida del plantel (puro)
+  /db                            -- Dexie, cola de salida, sincronización y acciones de dominio
+  /app                           -- hooks de React: sesión, datos locales, sincronizador, preferencias
+  /supabase                      -- clientes
 /components
+/e2e                             -- Playwright
+/public/sw.js                    -- service worker
 /supabase/migrations
 /docs/SPEC.md
 ```
+*Decisión (v1.3)*: las rutas de la app son **estáticas** y el id va en la URL (`?id=`), en lugar de `/equipos/[teamId]/…`. El equipo y el torneo elegidos se guardan en el dispositivo. Así el service worker guarda todas las pantallas al instalarse y el partido abre sin conexión aunque nunca se haya abierto esa pantalla.
 
 ---
 
@@ -354,7 +371,7 @@ Navegación inferior con 4 tabs: **Partido** · **Plantel** · **Estadísticas**
 
 1. **Login**: email (magic link) o Google.
 2. **Onboarding**: crear el primer equipo, cargar jugadores (alta rápida, uno por línea: "10 Juan MED"), crear torneo y configuración.
-3. **Plantel**: lista con chips de posición. Gesto de deslizar para editar o desactivar.
+3. **Plantel**: lista con chips de posición. Tocar un jugador abre su edición (posiciones, número, apodo, dar de baja).
 4. **Partidos del torneo**: tarjetas de partido con estado. Botón flotante "Nuevo partido".
 5. **Previa del partido** (en pasos):
    1. Asistencia: tocar para alternar entre presente, ausente, lesionado o tarde.
@@ -367,15 +384,17 @@ Navegación inferior con 4 tabs: **Partido** · **Plantel** · **Estadísticas**
    - Abajo: banco ordenado por prioridad.
    - Sobre la cancha aparece la **tarjeta de sugerencia**, que entra deslizándose desde abajo, con "Sale → Entra" y los botones Confirmar, Posponer y Descartar.
    - Acciones rápidas: ⚽ Gol, 🔁 Cambio manual, 🧤 Cambiar arquero, 🩹 Lesión, ↩︎ Deshacer.
-   - Al confirmar un cambio, los jugadores intercambian lugar con una animación de layout.
-7. **Resumen del partido**: marcador, Gantt de stints y tabla de minutos.
+   - Al confirmar un cambio, los jugadores intercambian lugar con una animación (View Transitions).
+   - Cada jugador muestra su estado respecto de la cuota con color **y** con un ícono: ✓ en cuota, ▲ se está pasando, ▼ le faltan minutos (RNF-09).
+   - Los cambios sugeridos se pueden confirmar, posponer 1 o 2 minutos, descartar o editar (RF-17).
+7. **Resumen del partido**: marcador, Gantt de stints y tabla de minutos. «Editar» reabre el partido con confirmación (deshace el fin del partido) y, al volver a terminarlo, se recalculan las estadísticas (RF-25).
 8. **Estadísticas**: tabs Tabla · Mapa de calor · Jugador.
 9. **Ajustes**: configuración del torneo, link público (activar, copiar, regenerar) y tema.
 
 ### 8.1 Lineamientos visuales
 - Paleta sobria con un color de acento, que es el color del equipo.
 - Tipografía del sistema (sin fuentes web) para mantener el bundle chico. Cifras tabulares en el cronómetro y en los minutos.
-- Transiciones: *shared layout* para jugador ↔ banco, *slide* entre pasos de la previa y *fade/scale* en modales. Siempre con `prefers-reduced-motion`.
+- Transiciones: View Transitions para jugador ↔ banco, *slide* para las hojas modales y la tarjeta de sugerencia. Siempre con `prefers-reduced-motion`.
 
 ---
 

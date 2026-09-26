@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HomeActions } from "./home-actions";
 
 export default function Home() {
   return (
@@ -8,18 +9,16 @@ export default function Home() {
         <h1 className="text-4xl font-bold leading-tight">Que jueguen todos. Parejo.</h1>
         <p className="text-muted">
           Planificá las rotaciones, recibí sugerencias de cambio en vivo y seguí los minutos de cada
-          jugador a lo largo del torneo.
+          jugador a lo largo del torneo. Funciona sin conexión en la cancha.
         </p>
       </div>
 
-      <Link
-        href="/demo"
-        className="rounded-2xl bg-accent px-5 py-4 text-center text-lg font-semibold text-accent-contrast shadow-sm transition active:scale-[0.98]"
-      >
-        Probar el planificador
-      </Link>
+      <HomeActions />
 
-      <p className="text-center text-xs text-muted">En desarrollo · fase F1</p>
+      <Link href="/demo" className="text-center text-sm text-muted underline">
+        Probar el planificador sin cuenta
+      </Link>
+      <p className="text-center text-xs text-muted">Beta</p>
     </main>
   );
 }

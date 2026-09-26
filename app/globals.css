@@ -14,8 +14,9 @@
   --pos-arq: #d97706;
 }
 
+/* Tema oscuro: automático según el sistema, o forzado desde Ajustes (data-theme). */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --background: #0e1113;
     --surface: #171b1f;
     --foreground: #eef1f3;
@@ -28,6 +29,19 @@
     --pos-del: #f87171;
     --pos-arq: #fbbf24;
   }
+}
+:root[data-theme="dark"] {
+    --background: #0e1113;
+    --surface: #171b1f;
+    --foreground: #eef1f3;
+    --muted: #9aa4af;
+    --border: #262c33;
+    --accent: #22c55e;
+    --accent-contrast: #06140b;
+    --pos-def: #60a5fa;
+    --pos-med: #4ade80;
+    --pos-del: #f87171;
+    --pos-arq: #fbbf24;
 }
 
 @theme inline {
@@ -61,5 +75,41 @@ body {
   *::after {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
+  }
+}
+
+/* Hojas modales: suben desde abajo (RNF-03). */
+dialog.sheet[open] {
+  animation: sheet-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+dialog.sheet::backdrop {
+  animation: fade-in 200ms ease-out;
+}
+@keyframes sheet-in {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Tarjeta de sugerencia: entra deslizándose desde abajo (§8.6, RNF-03). */
+.slide-up {
+  animation: sheet-in 250ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Intercambio jugador ↔ banco con View Transitions (RNF-03). */
+::view-transition-group(*) {
+  animation-duration: 280ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
 }
