@@ -75,3 +75,15 @@ export function planStints(plan: RotationPlan): Stint[] {
   done.push(...open.values());
   return done;
 }
+
+/** Cantidad de stints de campo por jugador; seguir en cancha tras el entretiempo no corta el stint. */
+export function stintCounts(plan: RotationPlan): Map<string, number> {
+  const counts = new Map<string, number>();
+  let prev = new Set<string>();
+  for (const w of plan.windows) {
+    const ids = new Set(w.field.map((f) => f.playerId));
+    for (const id of ids) if (!prev.has(id)) counts.set(id, (counts.get(id) ?? 0) + 1);
+    prev = ids;
+  }
+  return counts;
+}

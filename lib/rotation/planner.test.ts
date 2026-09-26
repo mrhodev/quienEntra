@@ -2,8 +2,8 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { allocate, allocateWithFloors } from "./allocate";
 import { planRotation } from "./planner";
-import { baseInput, F7, makePlayers, planStints } from "./test-utils";
-import type { RotationConfig, RotationInput } from "./types";
+import { baseInput, F7, makePlayers, planStints, stintCounts } from "./test-utils";
+import type { FieldPosition, RotationConfig, RotationInput } from "./types";
 import { buildWindows } from "./windows";
 
 const sum = (xs: number[]) => xs.reduce((a, x) => a + x, 0);
@@ -39,6 +39,25 @@ describe("buildWindows", () => {
 });
 
 describe("planRotation", () => {
+  it("RF-40: con ventanas de distinta duración (10-10-5) compensa para que casi todos jueguen lo mismo", () => {
+    const config: RotationConfig = {
+      ...F7,
+      playersOnField: 9,
+      windowMinutes: 10,
+      minStintMinutes: 10,
+      guaranteedMinutes: 10,
+      formation: { DEF: 3, MED: 3, DEL: 2 },
+    };
+    const plan = planRotation(baseInput(20, config));
+    const minutes = Object.entries(plan.expectedFieldMinutes).filter(([id]) => id !== "gk").map(([, m]) => m);
+    // M = 8 · 50 = 400 entre 20 → 20' cada uno. Con las ventanas de 5' no se puede sin cambiar
+    // 6 de 8 de golpe; con hasta 5 cambios por ventana, 16 de 20 quedan justo en 20'.
+    expect(minutes.filter((m) => m === 20).length).toBeGreaterThanOrEqual(16);
+    expect(plan.maxSpread).toBeLessThanOrEqual(10);
+    for (const w of plan.windows.slice(1)) expect(w.subs.length).toBeLessThanOrEqual(5);
+    for (const [, n] of stintCounts(plan)) expect(n).toBeLessThanOrEqual(2);
+  });
+
   it("CA-01: F7 2×25, 12 presentes con arquero fijo → entre 25 y 30 minutos", () => {
     const plan = planRotation(baseInput(11));
     const field = Object.entries(plan.expectedFieldMinutes).filter(([id]) => id !== "gk");
@@ -127,12 +146,18 @@ describe("planRotation", () => {
     expect(plan.targetMinutes[late.id]).toBeLessThanOrEqual(35);
   });
 
-  it("maxSubsPerWindow limita las entradas (salvo en el entretiempo)", () => {
-    const plan = planRotation(baseInput(14, { ...F7, maxSubsPerWindow: 2 }));
-    for (const w of plan.windows.slice(1)) {
-      if (w.startMin === 25) continue;
-      expect(w.subs.length).toBeLessThanOrEqual(2);
-    }
+  it("maxSubsPerWindow limita las entradas, también en el entretiempo", () => {
+    const plan = planRotation(baseInput(14, { ...F7, maxSubsPerWindow: 1 }));
+    for (const w of plan.windows.slice(1)) expect(w.subs.length).toBeLessThanOrEqual(1);
+  });
+
+  it("RF-40: F7 con 11 de campo, cada uno juega de corrido y los cambios son de a uno o dos", () => {
+    const plan = planRotation(baseInput(11));
+    for (const w of plan.windows.slice(1)) expect(w.subs.length).toBeLessThanOrEqual(2);
+    for (const [, n] of stintCounts(plan)) expect(n).toBeLessThanOrEqual(2);
+    // El entretiempo es una ventana más: no se cambia el equipo entero.
+    expect(plan.windows.find((w) => w.startMin === 25)!.subs.length).toBeLessThanOrEqual(2);
+    expect(plan.maxSpread).toBeLessThanOrEqual(5);
   });
 
   it("cambio de arquero planificado: los minutos de arco cuentan como jugados", () => {
@@ -167,10 +192,38 @@ describe("planRotation", () => {
     const plan = planRotation(live);
     expect(plan.windows[0].startMin).toBe(12);
     expect(plan.windows[0].index).toBe(2);
-    // Quienes no jugaron todavía tienen que entrar primero.
+    // Quienes no jugaron todavía entran a más tardar en el entretiempo, de a poco: nunca medio equipo de golpe.
     const benchIds = input.players.filter((p) => p.id !== "gk" && !first.some((f) => f.playerId === p.id));
-    for (const p of benchIds) expect(plan.windows[0].field.map((f) => f.playerId)).toContain(p.id);
+    const firstHalf = plan.windows.filter((w) => w.startMin <= 25).flatMap((w) => w.subs.map((s) => s.inId));
+    for (const p of benchIds) expect(firstHalf).toContain(p.id);
+    for (const w of plan.windows) expect(w.subs.length).toBeLessThanOrEqual(3);
     expect(sum(Object.values(plan.expectedFieldMinutes))).toBeCloseTo(6 * 50);
+  });
+
+  it("en vivo: al inicio de una ventana sugiere sus cambios y, una vez hechos, no los repite", () => {
+    const input = baseInput(11);
+    const pre = planRotation(input);
+    const at = (nowMin: number, field: { playerId: string; position: FieldPosition }[], since: Map<string, number>, played: Map<string, number>) =>
+      planRotation({
+        ...input,
+        nowMin,
+        playedSoFar: input.players.map((p) => ({
+          playerId: p.id,
+          fieldMinutes: played.get(p.id) ?? 0,
+          goalkeeperMinutes: p.id === "gk" ? nowMin : 0,
+        })),
+        onFieldNow: field.map((f) => ({ ...f, sinceMin: since.get(f.playerId) ?? 0 })),
+      });
+    const lineup = pre.windows[0].field;
+    const played = new Map(lineup.map((f) => [f.playerId, 5]));
+    const live = at(5, lineup, new Map(), played);
+    expect(live.windows[0].startMin).toBe(5);
+    expect(live.windows[0].subs.length).toBeGreaterThan(0);
+
+    // Se hacen los cambios sugeridos: el nuevo plan no pide más cambios en el minuto 5.
+    const since = new Map(live.windows[0].subs.map((s) => [s.inId, 5]));
+    const after = at(5, live.windows[0].field, since, played);
+    expect(after.windows[0].subs).toEqual([]);
   });
 
   it("en vivo: un lesionado sale y su lugar lo ocupa alguien de la misma posición", () => {
@@ -378,29 +431,53 @@ describe("propiedades del motor", () => {
     );
   });
 
+  const homogeneousArb = fc.record({
+    n: fc.constantFrom(5, 7, 9, 11),
+    extra: fc.integer({ min: 0, max: 14 }),
+    b: fc.integer({ min: 2, max: 8 }),
+    windowsPerPeriod: fc.integer({ min: 2, max: 8 }),
+    periods: fc.integer({ min: 1, max: 4 }),
+  });
+  type HomogeneousScenario = { n: number; extra: number; b: number; windowsPerPeriod: number; periods: number };
+  const homogeneousPlan = ({ n, extra, b, windowsPerPeriod, periods }: HomogeneousScenario) => {
+    const config: RotationConfig = {
+      playersOnField: n,
+      periods: Array.from({ length: periods }, () => ({ minutes: b * windowsPerPeriod })),
+      windowMinutes: b,
+      minStintMinutes: b,
+      guaranteedMinutes: b,
+      equityWeight: 0.3,
+      goalkeeperRotates: false,
+    };
+    const input = baseInput(n - 1 + extra, config);
+    input.players = [input.players[0], ...makePlayers(n - 1 + extra, { primary: "MED" })];
+    return planRotation(input);
+  };
+
   it("CA-R1: pool homogéneo, períodos múltiplos de b, sin límites → spread ≤ b", () => {
-    const arb = fc.record({
-      n: fc.constantFrom(5, 7, 9, 11),
-      extra: fc.integer({ min: 0, max: 14 }),
-      b: fc.integer({ min: 2, max: 8 }),
-      windowsPerPeriod: fc.integer({ min: 2, max: 8 }),
-      periods: fc.integer({ min: 1, max: 4 }),
-    });
     fc.assert(
-      fc.property(arb, ({ n, extra, b, windowsPerPeriod, periods }) => {
-        const config: RotationConfig = {
-          playersOnField: n,
-          periods: Array.from({ length: periods }, () => ({ minutes: b * windowsPerPeriod })),
-          windowMinutes: b,
-          minStintMinutes: b,
-          guaranteedMinutes: b,
-          equityWeight: 0.3,
-          goalkeeperRotates: false,
-        };
-        const input = baseInput(n - 1 + extra, config);
-        input.players = [input.players[0], ...makePlayers(n - 1 + extra, { primary: "MED" })];
-        const plan = planRotation(input);
-        expect(plan.maxSpread).toBeLessThanOrEqual(b + 1e-6);
+      fc.property(homogeneousArb, (s) => {
+        expect(homogeneousPlan(s).maxSpread).toBeLessThanOrEqual(s.b + 1e-6);
+      }),
+    );
+  });
+
+  it("CA-R9: pool homogéneo → cada jugador juega a lo sumo dos stints", () => {
+    fc.assert(
+      fc.property(homogeneousArb, (s) => {
+        for (const [, n] of stintCounts(homogeneousPlan(s))) expect(n).toBeLessThanOrEqual(2);
+      }),
+    );
+  });
+
+  it("CA-R10: pool homogéneo → las entradas por ventana siguen el ritmo parejo del partido", () => {
+    fc.assert(
+      fc.property(homogeneousArb, (s) => {
+        const plan = homogeneousPlan(s);
+        const pool = s.n - 1 + s.extra;
+        const duration = s.b * s.windowsPerPeriod * s.periods;
+        const cap = Math.ceil((pool * s.b) / duration);
+        for (const w of plan.windows.slice(1)) expect(w.subs.length).toBeLessThanOrEqual(cap);
       }),
     );
   });

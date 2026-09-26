@@ -87,7 +87,7 @@ Es un SaaS multiusuario: cualquier DT puede registrarse y crear sus equipos.
 - **RF-09** Crear partido dentro de un torneo: fecha y hora, rival, local o visitante, y configuración (heredada, editable).
 - **RF-10** **Convocatoria / asistencia**: para cada jugador del plantel se marca `presente`, `ausente`, `lesionado` o `llega tarde` (con minuto estimado de llegada).
 - **RF-11** Elegir el **arquero titular**. Por defecto se propone el jugador con `ARQ` como posición principal que más partidos atajó.
-- **RF-12** **Generar plan de rotación** (ver §6): una grilla de ventanas × jugadores que muestra quién está en cancha en cada ventana y en qué posición, más los minutos previstos de cada uno.
+- **RF-12** **Generar plan de rotación** (ver §6): una grilla de ventanas × jugadores que muestra quién está en cancha en cada ventana y en qué posición, más los minutos previstos de cada uno. Las columnas se separan visualmente en módulos de 5 minutos de reloj, con un corte más marcado entre períodos.
 - **RF-13** El DT puede **editar el plan** a mano: intercambiar jugadores de una ventana, fijar a un jugador en cancha o en el banco durante una ventana. El resto del plan se recalcula respetando lo fijado.
 - **RF-14** Vista previa de la equidad del plan: minutos previstos por jugador y diferencia máxima entre jugadores de campo.
 
@@ -96,6 +96,7 @@ Es un SaaS multiusuario: cualquier DT puede registrarse y crear sus equipos.
 - **RF-16** **Vista de cancha**: los jugadores en cancha agrupados por posición y el banco ordenado por prioridad de entrada. Cada jugador muestra sus minutos jugados en el partido y un indicador de estado respecto de su cuota (verde: en cuota, ámbar: se está pasando, azul: le faltan minutos).
 - **RF-17** **Sugerencia de cambio**: al llegar una ventana de cambio, o si el desvío de algún jugador supera el umbral, se muestra una tarjeta "Sale X → Entra Y" (una por par), con la posición.
   - El DT puede **confirmar** todos, confirmar algunos, **posponer** (1 o 2 minutos) o **descartar**.
+  - Antes de confirmar, el DT puede **cambiar la sugerencia**: tocar quién entra o quién sale y elegir a otro jugador. Para entrar se ofrecen los del banco disponibles, primero los de la posición del cambio y, entre ellos, a quienes más minutos les faltan. Para salir se ofrecen los de cancha, primero quienes más se pasaron de su cuota. Si cambia quién sale, quien entra ocupa la posición del saliente. Un mismo jugador no puede entrar ni salir en dos cambios a la vez.
   - Confirmar registra un evento `sub` (`{out, in, position}`) por cada par, con el tiempo de partido actual.
 - **RF-18** **Cambio manual**: tocar un jugador en cancha y luego uno del banco (o arrastrar) registra el cambio en cualquier momento.
 - **RF-19** **Avisos**: vibración y aviso visual (flash o pulso en la tarjeta) cuando hay una sugerencia. En dispositivos sin la Vibration API (iOS Safari) se usa un aviso sonoro corto, que se puede desactivar, y el visual.
@@ -134,6 +135,7 @@ Es un SaaS multiusuario: cualquier DT puede registrarse y crear sus equipos.
   - Única excepción: el jugador tiene menos minutos disponibles que el mínimo (llegó muy tarde o se lesionó antes de entrar). En ese caso juega todos los minutos que tenga disponibles.
   - En vivo, si un presente todavía no entró y el tiempo restante se acerca a su mínimo, su entrada se sugiere con prioridad máxima.
 - **RF-39** **Reingresos permitidos**: un jugador que sale puede volver a entrar las veces que sea necesario.
+- **RF-40** **Rotación escalonada y de corrido.** Cada jugador juega sus minutos de la forma más continua posible (idealmente un solo stint; a lo sumo dos: uno al principio y otro al final), y los cambios se reparten a lo largo del partido de a uno o dos por ventana, para que el equipo nunca se renueve entero de golpe. El entretiempo es una ventana de cambio más: no se cambia el equipo completo.
 
 ### 4.7 Offline y sincronización
 - **RF-32** La app se instala como **PWA** y funciona sin conexión para: ver plantel y torneo, crear y jugar un partido, y registrar todos sus eventos.
@@ -211,13 +213,23 @@ Para cada ventana *k* (desde `nowMin`):
 1. `need_i = T_i − (jugados_i + asignados_i)`: minutos que le faltan a cada jugador.
 2. Se descartan los no disponibles en la ventana y se aplican los `locks`.
 3. **Restricción dura**: si a un jugador que todavía no alcanzó su piso le quedan tantos minutos disponibles como ventanas necesarias para cubrirlo, se lo pone en cancha obligatoriamente.
-4. Con el resto de los lugares, se eligen los `N − 1` jugadores de campo maximizando:
-   `score_i = need_i + β·[está en cancha y su stint < minStint] − γ·[cambio]`
-   - β (continuidad forzada) respeta el stint mínimo.
-   - γ (costo de cambiar) evita cambios innecesarios cuando las diferencias son chicas (default γ = 0.5·b).
-   - Si hay `maxSubsPerWindow`, se limitan las entradas por ventana.
-5. **Asignación de posiciones**: con los elegidos se cubre la `formation` minimizando el costo (0 = posición principal, 1 = secundaria, 3 = fuera de posición). Como el problema es chico (≤ 10 jugadores de campo), alcanza con una asignación húngara o con fuerza bruta con poda. Si nadie cubre una posición, se usa el costo 3: **no es excluyente**.
+4. **Rotación escalonada (RF-40).** La formación inicial son los `N − 1` con más `need_i`. Desde ahí, quien está en cancha **sigue** salvo que le toque salir:
+   - **Ritmo**: el plantel entero rota una vez en el partido, así que entran en promedio `P / D` jugadores por minuto (P = jugadores de campo del pool). Las entradas de cada ventana siguen ese ritmo acumulado (redondeado), con un tope de `⌈P·b / D⌉` por ventana. Si una entrada no se pudo hacer (por ejemplo, por el stint mínimo), se arrastra a la siguiente.
+   - **Quién sale**: quien ya cumplió el stint mínimo, con menos `need_i` y más tiempo en cancha.
+   - **Quién entra**: quien tiene menos margen (`minutos disponibles − need_i`). Así los que no jugaron entran primero y quien ya jugó vuelve lo más tarde posible, para cerrar el partido de corrido.
+   - Cada cambio se hace solo si mejora la equidad (`need` del que entra > `need` del que sale).
+   - **Corrección**: se permite una entrada extra por ventana si alguien del banco quedaría más de una ventana (*b*) por debajo de su cuota si espera a la próxima, o si alguien en cancha ya la superó por más de `b/2`.
+   - Los lugares vacíos (lesión) y las entradas obligatorias (bloqueos, mínimo garantizado) no cuentan para el ritmo.
+   - Si hay `maxSubsPerWindow`, se limitan las entradas de todas las ventanas, incluido el entretiempo.
+5. **Asignación de posiciones**: con los elegidos se cubre la `formation` minimizando el costo (0 = posición principal, 1 = secundaria, 3 = fuera de posición). Como el problema es chico (≤ 10 jugadores de campo), alcanza con una asignación húngara o con fuerza bruta con poda. Si nadie cubre una posición, se usa el costo 3: **no es excluyente**. Para acomodar posiciones se puede canjear a quien entra por otro del banco, o a quien sigue por otro que iba a salir, pero sin sumar cambios.
 6. Se actualizan `asignados_i += duración de la ventana`.
+
+**Refinamiento** (búsqueda local sobre el plan del greedy, `lib/rotation/refine.ts`): se prueba canjear, en una ventana, a un jugador en cancha por uno del banco, y se acepta el canje si baja el objetivo
+`Σ ((minutos_i − T_i) / b)² + w_s · stints + w_e · Σ entradas_k² + w_p · costo de posiciones`.
+- Sirve sobre todo cuando las ventanas tienen distinta duración (por ejemplo 10-10-5 con períodos de 25 y b = 10): el greedy deja a unos con 15' y a otros con 25', y el refinamiento los compensa.
+- Nunca rompe bloqueos, disponibilidad, el mínimo garantizado ni el stint mínimo, nunca le da a nadie más de dos stints y nunca supera el tope de entradas por ventana (`maxSubsPerWindow`, o `⌈P·b / D⌉ + 1`).
+- No toca la ventana en curso en vivo (la que quedó recortada por `nowMin`).
+- Es determinista: recorre ventanas y jugadores en orden fijo y se detiene cuando no hay mejoras (o tras 30 pasadas).
 
 **Salida**:
 ```ts
@@ -232,7 +244,8 @@ type RotationPlan = {
 ```
 
 **Parámetros internos (calibrados con tests)**:
-- γ, costo de cambiar: `0.5·b`.
+- Pesos del refinamiento: `w_s = 0.1` por stint, `w_e = 0.01` por entrada², `w_p = 0.1` por unidad de costo de posición. Con pesos más altos (0.3 y 0.03), el caso F9 con 20 jugadores, b = 10 y 2×25 quedaba en 7 jugadores con 15', 6 con 20' y 7 con 25'. Con estos pesos, 16 de 20 juegan 20', que es el óptimo si se admiten hasta 5 cambios por ventana. Que todos jueguen 20' exige cambiar 6 de los 8 de golpe.
+- Tolerancia de la corrección de equidad: una ventana (*b*) para quien espera en el banco y `b/2` para quien se pasa en cancha. Con `b/2` para ambos, en partidos largos los que vuelven al final entraban antes de tiempo y desplazaban a otros (diferencias de hasta 4 ventanas).
 - λ, peso de la posición por unidad de costo: `0.15·b`. Jugar fuera de posición (costo 3) pesa menos de media ventana. Así, la posición desempata entre jugadores con minutos parecidos, pero nunca le quita una ventana entera a quien tiene más minutos pendientes. Con un valor más alto (`0.4·b`), el test CA-01 mostró diferencias de 10 minutos entre jugadores.
 - **Urgencia del mínimo garantizado**: en cada ventana, si la capacidad de entradas de las ventanas que quedan (limitada por `maxSubsPerWindow`) no alcanza para todos los que todavía no llegaron al mínimo, los que sobran entran ya, aunque se supere el límite de cambios (RF-38 tiene prioridad).
 
@@ -247,9 +260,11 @@ type RotationPlan = {
 - **CA-R4**: ningún stint planificado es menor que `minStintMinutes`, salvo en el último tramo de un período o por lesión.
 - **CA-R5**: con α = 0 el resultado no depende de `tournamentRatio`. Con α > 0, entre dos jugadores idénticos, el de menor `r` recibe al menos los mismos minutos.
 - **CA-R6**: la función es determinista: la misma entrada produce la misma salida (desempates por `id`).
+- **CA-R9**: con un pool homogéneo, todos disponibles todo el partido, `minStintMinutes = b` y sin locks, ningún jugador tiene más de dos stints (seguir en cancha tras el entretiempo no corta el stint).
+- **CA-R10**: en las mismas condiciones, ninguna ventana (salvo la formación inicial) tiene más de `⌈P·b / D⌉` entradas.
 - **CA-R8**: todo jugador del pool tiene `expectedMinutes ≥ min(guaranteedMinutes, disponibles)`, cualquiera sea α, el valor de `tournamentRatio` y los bloqueos. Si los bloqueos lo hacen imposible, el motor devuelve un error de validación que identifica al jugador.
 - **CA-R7**: rendimiento por debajo de 20 ms para 25 jugadores, D = 80 y b = 2 en un móvil de gama media.
-- Se exigen tests unitarios y *property-based tests* (fast-check) para CA-R1 a CA-R6 y CA-R8.
+- Se exigen tests unitarios y *property-based tests* (fast-check) para CA-R1 a CA-R6 y CA-R8 a CA-R10.
 
 ---
 

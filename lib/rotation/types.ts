@@ -8,7 +8,7 @@ export interface RotationConfig {
   periods: { minutes: number }[];
   /** b: longitud de la ventana de cambio, en minutos. */
   windowMinutes: number;
-  /** Máximo de jugadores que entran por ventana (no aplica al inicio de un período). */
+  /** Máximo de jugadores que entran por ventana, incluido el entretiempo (RF-40). */
   maxSubsPerWindow?: number;
   minStintMinutes: number;
   /** Mínimo garantizado por presente (RF-38). */

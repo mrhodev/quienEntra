@@ -2,56 +2,11 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import {
-  planRotation,
-  type FieldPosition,
-  type Position,
-  type RotationConfig,
-  type RotationPlayer,
-} from "@/lib/rotation";
+import { planRotation, type RotationConfig, type RotationPlayer } from "@/lib/rotation";
+import { FORMATIONS, Legend, makeSquad, POS_STYLE, Stat, Stepper, type DemoPlayer } from "./shared";
 
-const NAMES = [
-  "Tomás", "Benja", "Santi", "Mateo", "Juanchi", "Lucho", "Nacho", "Fran", "Joaco", "Thiago",
-  "Bauti", "Valen", "Lauti", "Agus", "Facu", "Nico", "Pipe", "Rama", "Gonza", "Mati",
-  "Leo", "Emi", "Dani", "Seba",
-];
-const POS_CYCLE: Position[] = ["DEF", "MED", "DEL", "MED", "DEF", "MED", "DEF", "DEL"];
-
-const FORMATIONS: Record<number, Record<FieldPosition, number>> = {
-  5: { DEF: 2, MED: 1, DEL: 1 },
-  7: { DEF: 2, MED: 3, DEL: 1 },
-  8: { DEF: 3, MED: 3, DEL: 1 },
-  9: { DEF: 3, MED: 3, DEL: 2 },
-  11: { DEF: 4, MED: 4, DEL: 2 },
-};
-
-const POS_STYLE: Record<Position, string> = {
-  DEF: "bg-pos-def",
-  MED: "bg-pos-med",
-  DEL: "bg-pos-del",
-  ARQ: "bg-pos-arq",
-};
-
-interface DemoPlayer {
-  id: string;
-  name: string;
-  position: Position;
-  present: boolean;
-  ratio: number | null;
-}
-
-function makeSquad(n: number): DemoPlayer[] {
-  return [
-    { id: "p00", name: "Arquero", position: "ARQ", present: true, ratio: null },
-    ...Array.from({ length: n }, (_, i) => ({
-      id: `p${String(i + 1).padStart(2, "0")}`,
-      name: NAMES[i % NAMES.length],
-      position: POS_CYCLE[i % POS_CYCLE.length],
-      present: true,
-      ratio: null,
-    })),
-  ];
-}
+/** Minutos de cada módulo visual de la grilla (RF-12). */
+const MODULE_MINUTES = 5;
 
 export function PlannerDemo() {
   const [onField, setOnField] = useState(7);
@@ -97,6 +52,11 @@ export function PlannerDemo() {
 
   const periodBreak = (i: number) =>
     i > 0 && plan.windows[i - 1].periodIndex !== plan.windows[i].periodIndex;
+  const moduleOf = (min: number) => Math.floor(min / MODULE_MINUTES + 1e-6);
+  const moduleBreak = (i: number) =>
+    i > 0 && moduleOf(plan.windows[i].startMin) > moduleOf(plan.windows[i - 1].startMin);
+  const colSeparator = (i: number) =>
+    periodBreak(i) ? "border-l-2 border-border" : moduleBreak(i) ? "border-l border-border/70" : "";
 
   const toggle = (id: string, patch: (p: DemoPlayer) => Partial<DemoPlayer>) =>
     setSquad((s) => s.map((p) => (p.id === id ? { ...p, ...patch(p) } : p)));
@@ -108,7 +68,9 @@ export function PlannerDemo() {
           ← Inicio
         </Link>
         <h1 className="text-lg font-bold">Planificador</h1>
-        <span className="w-12" />
+        <Link href="/demo/en-vivo" className="text-sm text-muted">
+          En vivo →
+        </Link>
       </header>
 
       <section className="mb-4 grid grid-cols-2 gap-3 rounded-2xl border border-border bg-surface p-4">
@@ -165,7 +127,7 @@ export function PlannerDemo() {
               {plan.windows.map((w) => (
                 <th
                   key={w.index}
-                  className={`tabular px-px py-2 text-[10px] font-medium ${periodBreak(w.index) ? "border-l-2 border-border" : ""}`}
+                  className={`tabular px-px py-2 text-[10px] font-medium ${colSeparator(w.index)}`}
                 >
                   {w.startMin}&apos;
                 </th>
@@ -198,7 +160,7 @@ export function PlannerDemo() {
                     return (
                       <td
                         key={w.index}
-                        className={`px-px py-1.5 ${periodBreak(w.index) ? "border-l-2 border-border" : ""}`}
+                        className={`px-px py-1.5 ${colSeparator(w.index)}`}
                       >
                         <div
                           className={`h-6 min-w-3.5 rounded-[5px] transition-all duration-300 ${cell ? POS_STYLE[cell] : "bg-border/60"} ${entering ? "ring-2 ring-foreground/60 ring-offset-1 ring-offset-surface" : ""}`}
@@ -281,66 +243,5 @@ export function PlannerDemo() {
         </ol>
       </section>
     </main>
-  );
-}
-
-function Stepper<T extends number>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: T;
-  options: T[];
-  onChange: (v: T) => void;
-}) {
-  const i = Math.max(0, options.indexOf(value));
-  const btn =
-    "grid size-9 place-items-center rounded-full bg-background text-lg font-semibold transition active:scale-90 disabled:opacity-30";
-  return (
-    <div>
-      <p className="mb-1 text-xs text-muted">{label}</p>
-      <div className="flex items-center justify-between gap-1">
-        <button className={btn} disabled={i === 0} onClick={() => onChange(options[i - 1])} aria-label={`Menos ${label}`}>
-          −
-        </button>
-        <span className="tabular text-lg font-bold">{value}</span>
-        <button
-          className={btn}
-          disabled={i === options.length - 1}
-          onClick={() => onChange(options[i + 1])}
-          aria-label={`Más ${label}`}
-        >
-          +
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function Stat({ label, value, tone }: { label: string; value: string; tone?: "good" | "warn" }) {
-  return (
-    <div className="rounded-2xl border border-border bg-surface px-2 py-3">
-      <p
-        className={`tabular text-2xl font-bold ${tone === "good" ? "text-accent" : tone === "warn" ? "text-pos-del" : ""}`}
-      >
-        {value}
-      </p>
-      <p className="text-xs text-muted">{label}</p>
-    </div>
-  );
-}
-
-function Legend() {
-  return (
-    <div className="flex gap-2 text-[10px] text-muted">
-      {(["ARQ", "DEF", "MED", "DEL"] as const).map((p) => (
-        <span key={p} className="flex items-center gap-1">
-          <span className={`size-2 rounded-full ${POS_STYLE[p]}`} />
-          {p}
-        </span>
-      ))}
-    </div>
   );
 }
