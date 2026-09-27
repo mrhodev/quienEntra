@@ -6,10 +6,10 @@ import type { Position } from "@/lib/rotation";
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 
 const VARIANT: Record<Variant, string> = {
-  primary: "bg-accent text-accent-contrast",
-  secondary: "bg-surface border border-border",
+  primary: "bg-accent text-accent-contrast font-display text-lg font-extrabold uppercase tracking-wide",
+  secondary: "bg-raised border border-border",
   ghost: "text-muted",
-  danger: "bg-pos-del text-white",
+  danger: "bg-pos-del text-background font-display text-lg font-extrabold uppercase tracking-wide",
 };
 
 /** Botón con objetivo táctil de al menos 44 px (RNF-01). */
@@ -117,7 +117,7 @@ export const POS_LABEL: Record<Position, string> = {
 export function PosChip({ pos, dim }: { pos: Position; dim?: boolean }) {
   return (
     <span
-      className={`inline-flex h-5 min-w-9 items-center justify-center rounded px-1 text-[10px] font-bold text-white ${POS_BG[pos]} ${dim ? "opacity-50" : ""}`}
+      className={`inline-flex h-5 min-w-9 items-center justify-center rounded-md px-1 font-display text-[11px] font-extrabold text-background ${POS_BG[pos]} ${dim ? "opacity-50" : ""}`}
     >
       {pos}
     </span>
@@ -136,14 +136,14 @@ export function Segmented<T extends string>({
   label: string;
 }) {
   return (
-    <div role="tablist" aria-label={label} className="flex rounded-xl bg-border/60 p-1">
+    <div role="tablist" aria-label={label} className="flex rounded-xl bg-surface p-1">
       {options.map((o) => (
         <button
           key={o.value}
           role="tab"
           aria-selected={o.value === value}
           onClick={() => onChange(o.value)}
-          className={`min-h-9 flex-1 rounded-lg px-2 text-sm font-medium transition ${o.value === value ? "bg-surface shadow-sm" : "text-muted"}`}
+          className={`min-h-9 flex-1 rounded-lg px-2 font-display text-sm font-bold uppercase tracking-wide transition ${o.value === value ? "bg-accent text-accent-contrast" : "text-muted"}`}
         >
           {o.label}
         </button>
@@ -199,17 +199,38 @@ export function Stepper({
   );
 }
 
-/** Texto negro o blanco según el color de fondo (contraste WCAG, RNF-09). */
+/** Texto oscuro o blanco según el color de fondo (contraste WCAG, RNF-09). */
 export function contrastOn(hex: string): string {
+  const L = luminance(hex);
+  if (L === null) return "#ffffff";
+  return L > 0.4 ? "#0f0a26" : "#ffffff";
+}
+
+/** Colores de equipo: vivos, para que se lean sobre el fondo índigo. */
+export const TEAM_COLORS = ["#00e0c6", "#b6ff3b", "#ff4fd8", "#ffc247", "#59a8ff", "#ff7a7a", "#a78bfa", "#3ddc84", "#ff9f43"];
+
+function luminance(hex: string): number | null {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex);
-  if (!m) return "#ffffff";
+  if (!m) return null;
   const n = parseInt(m[1], 16);
   const lin = (c: number) => {
     const s = c / 255;
     return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
   };
-  const L = 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
-  return L > 0.4 ? "#0b0f0c" : "#ffffff";
+  return 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
 }
 
-export const TEAM_COLORS = ["#16a34a", "#2563eb", "#dc2626", "#7c3aed", "#ea580c", "#0891b2", "#db2777", "#1f2937", "#ca8a04"];
+/**
+ * Color de acento legible sobre el fondo oscuro: un color de equipo muy oscuro (de antes del
+ * estilo Fantasy) se aclara hasta tener contraste suficiente.
+ */
+export function readableAccent(hex: string): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return "#00e0c6";
+  let [r, g, b] = [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16));
+  const toHex = () => `#${[r, g, b].map((c) => Math.round(c).toString(16).padStart(2, "0")).join("")}`;
+  for (let i = 0; i < 10 && (luminance(toHex()) ?? 1) < 0.2; i++) {
+    [r, g, b] = [r, g, b].map((c) => c + (255 - c) * 0.18);
+  }
+  return toHex();
+}

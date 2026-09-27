@@ -6,14 +6,15 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { useCurrent } from "@/lib/app/data";
 import { useSession } from "@/lib/app/session";
 import { SyncProvider, useSync, type SyncStatus } from "@/lib/app/sync-runner";
-import { contrastOn, Sheet } from "./ui";
+import { Icon } from "./icons";
+import { contrastOn, readableAccent, Sheet } from "./ui";
 
 const TABS = [
-  { href: "/partidos", label: "Partido", icon: "⚽", match: ["/partidos", "/partido"] },
-  { href: "/plantel", label: "Plantel", icon: "👥", match: ["/plantel"] },
-  { href: "/estadisticas", label: "Estadísticas", icon: "📊", match: ["/estadisticas"] },
-  { href: "/ajustes", label: "Ajustes", icon: "⚙️", match: ["/ajustes"] },
-];
+  { href: "/partidos", label: "Partido", icon: "ball", match: ["/partidos", "/partido"] },
+  { href: "/plantel", label: "Plantel", icon: "people", match: ["/plantel"] },
+  { href: "/estadisticas", label: "Estadísticas", icon: "chart", match: ["/estadisticas"] },
+  { href: "/ajustes", label: "Ajustes", icon: "settings", match: ["/ajustes"] },
+] as const;
 
 /** Estructura de la app del DT (§8): exige sesión, sincroniza y muestra la navegación. */
 export function AppShell({ children }: { children: ReactNode }) {
@@ -55,7 +56,7 @@ function Frame({ children }: { children: ReactNode }) {
 
   if (!ready || current.loading) return <Splash />;
 
-  const color = current.team?.color ?? "#16a34a";
+  const color = readableAccent(current.team?.color ?? "#00e0c6");
   const style = { "--accent": color, "--accent-contrast": contrastOn(color) } as CSSProperties;
 
   return (
@@ -75,11 +76,9 @@ function Frame({ children }: { children: ReactNode }) {
                   <Link
                     href={t.href}
                     aria-current={active ? "page" : undefined}
-                    className={`flex min-h-14 flex-col items-center justify-center text-[11px] font-medium ${active ? "text-accent" : "text-muted"}`}
+                    className={`flex min-h-14 flex-col items-center justify-center gap-0.5 font-display text-xs font-bold uppercase tracking-wide ${active ? "text-accent-ink" : "text-muted"}`}
                   >
-                    <span aria-hidden className="text-lg leading-none">
-                      {t.icon}
-                    </span>
+                    <Icon name={t.icon} />
                     {t.label}
                   </Link>
                 </li>
@@ -100,7 +99,7 @@ function TopBar() {
       <div className="mx-auto flex max-w-md items-center gap-2 px-4 py-2">
         <button onClick={() => setOpen("team")} className="flex min-h-11 min-w-0 items-center gap-2 text-left">
           <span className="size-3 shrink-0 rounded-full bg-accent" aria-hidden />
-          <span className="truncate font-bold">{current.team?.name ?? "Equipo"}</span>
+          <span className="truncate font-display text-lg font-extrabold uppercase">{current.team?.name ?? "Equipo"}</span>
           <span className="text-muted" aria-hidden>
             ▾
           </span>
@@ -134,7 +133,7 @@ function TopBar() {
             </li>
           ))}
         </ul>
-        <Link href="/bienvenida?nuevo=1" onClick={() => setOpen(null)} className="mt-3 flex min-h-12 items-center px-3 text-accent">
+        <Link href="/bienvenida?nuevo=1" onClick={() => setOpen(null)} className="mt-3 flex min-h-12 items-center px-3 text-accent-ink">
           + Nuevo equipo
         </Link>
       </Sheet>
@@ -155,7 +154,7 @@ function TopBar() {
             </li>
           ))}
         </ul>
-        <Link href="/ajustes?torneo=nuevo" onClick={() => setOpen(null)} className="mt-3 flex min-h-12 items-center px-3 text-accent">
+        <Link href="/ajustes?torneo=nuevo" onClick={() => setOpen(null)} className="mt-3 flex min-h-12 items-center px-3 text-accent-ink">
           + Nuevo torneo
         </Link>
       </Sheet>
@@ -174,15 +173,15 @@ const SYNC_TEXT: Record<SyncStatus["kind"], string> = {
 export function SyncBadge() {
   const { status, syncNow } = useSync();
   const count = "count" in status && status.count > 0 ? ` (${status.count})` : "";
-  const icon = status.kind === "synced" ? "✓" : status.kind === "offline" ? "⚠︎" : "↻";
-  const tone = status.kind === "synced" ? "text-muted" : status.kind === "offline" ? "text-pos-arq" : "text-accent";
+  const icon = status.kind === "synced" ? "check" : status.kind === "offline" ? "offline" : "sync";
+  const tone = status.kind === "synced" ? "text-pos-med" : status.kind === "offline" ? "text-pos-arq" : "text-accent-ink";
   return (
     <button
       onClick={syncNow}
       className={`flex min-h-11 shrink-0 items-center gap-1 text-xs ${tone}`}
       aria-label={`${SYNC_TEXT[status.kind]}${count}. Tocá para sincronizar.`}
     >
-      <span aria-hidden>{icon}</span>
+      <Icon name={icon} size={14} />
       <span>
         {SYNC_TEXT[status.kind]}
         {count}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Jersey } from "@/components/jersey";
 import { Button, Empty, Field, Input, PosChip, POS_LABEL, Sheet } from "@/components/ui";
 import { useCurrent, usePlayers } from "@/lib/app/data";
 import { addPlayers, updatePlayer } from "@/lib/db/repo";
@@ -24,7 +25,7 @@ export function Roster() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Plantel</h1>
+        <h1 className="text-3xl">Plantel</h1>
         <Button onClick={() => setAdding(true)}>+ Agregar</Button>
       </div>
 
@@ -36,7 +37,7 @@ export function Roster() {
 
       {inactive.length > 0 && (
         <section>
-          <h2 className="mb-2 text-sm font-semibold text-muted">Dados de baja</h2>
+          <h2 className="mb-2 font-display text-sm font-bold uppercase tracking-widest text-muted">Dados de baja</h2>
           <PlayerList players={inactive} onEdit={setEditing} />
         </section>
       )}
@@ -57,9 +58,9 @@ function PlayerList({ players, onEdit }: { players: PlayerRow[]; onEdit: (p: Pla
       {players.map((p) => (
         <li key={p.id}>
           <button onClick={() => onEdit(p)} className="flex min-h-14 w-full items-center gap-3 px-3 text-left">
-            <span className="tabular w-7 text-right font-semibold text-muted">{p.shirt_number ?? ""}</span>
+            <Jersey pos={p.primary_position} number={p.shirt_number ?? p.primary_position} size={36} />
             <span className="min-w-0 flex-1">
-              <span className="block truncate font-medium">{p.nickname || p.name}</span>
+              <span className="block truncate font-display text-lg font-bold leading-tight">{p.nickname || p.name}</span>
               {p.nickname && <span className="block truncate text-xs text-muted">{p.name}</span>}
             </span>
             <PosChip pos={p.primary_position} />

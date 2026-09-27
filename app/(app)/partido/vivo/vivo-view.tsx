@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SyncBadge } from "@/components/app-shell";
-import { Button, PosChip, POS_BG, Sheet } from "@/components/ui";
+import { Icon, type IconName } from "@/components/icons";
+import { Jersey } from "@/components/jersey";
+import { Pitch, PlayerCard } from "@/components/pitch";
+import { Button, PosChip, Sheet } from "@/components/ui";
 import { notifySuggestion, useNow, useWakeLock } from "@/lib/app/device";
 import { displayName, useMatchData } from "@/lib/app/match-data";
 import { setPref, usePref } from "@/lib/app/prefs";
@@ -17,7 +20,7 @@ import { minutesByPlayer } from "@/lib/match/derive";
 import { effectiveEvents, type MatchEvent, type MatchEventPayload } from "@/lib/match/events";
 import { alternativesIn, alternativesOut, dueSubs, withIn, withOut, type Candidate, type SwapContext } from "@/lib/match/suggestions";
 import { toMatchEvent } from "@/lib/match/rows";
-import { planRotation, type FieldPosition, type Position, type Substitution } from "@/lib/rotation";
+import { planRotation, type FieldPosition, type Substitution } from "@/lib/rotation";
 
 const MIN = 60_000;
 const ORDER: Record<FieldPosition, number> = { DEF: 0, MED: 1, DEL: 2 };
@@ -161,6 +164,11 @@ export function LiveMatch() {
     return "ok";
   };
 
+  const pendingText = (pid: string) => {
+    const pending = Math.round((plan.targetMinutes[pid] ?? 0) - minutesOf(pid));
+    return pending > 0 ? `le faltan ${pending}'` : `${Math.round(minutesOf(pid))}' jugados`;
+  };
+
   const undoable = effectiveEvents(events).filter((e) => e.type !== "lineup_set");
   const trailingUndos = (() => {
     const sorted = [...events].sort((a, b) => a.seq - b.seq || a.wallTime - b.wallTime);
@@ -182,12 +190,12 @@ export function LiveMatch() {
   return (
     <div className="space-y-3">
         {/* Cronómetro, período, marcador y sincronización */}
-        <header className="rounded-2xl border border-border bg-surface p-3">
+        <header className="-mx-4 -mt-4 space-y-2 bg-surface px-4 pb-3 pt-3">
           <div className="flex items-center justify-between text-sm">
             <Link href="/partidos" className="min-h-11 content-center text-muted">
-              ← Salir
+              ‹ Salir
             </Link>
-            <span className="text-muted">
+            <span className="rounded-full bg-accent px-3 py-0.5 font-display text-sm font-bold uppercase tracking-widest text-accent-contrast">
               {state.ended
                 ? "Final"
                 : state.inPeriod
@@ -199,36 +207,44 @@ export function LiveMatch() {
             <SyncBadge />
           </div>
           <div className="flex items-end justify-between">
-            <p className="tabular text-6xl font-bold leading-none" aria-live="off">
-              {formatClock(clock.periodElapsedMs)}
-            </p>
-            <p className="tabular text-4xl font-bold">
+            <div>
+              <p className="tabular font-display text-7xl font-extrabold leading-[0.85]" aria-live="off">
+                {formatClock(clock.periodElapsedMs)}
+              </p>
+              <p className="tabular mt-1 text-xs text-muted">
+                Total {formatClock(clock.elapsedMs)}
+                {match.opponent ? ` · vs ${match.opponent}` : ""}
+              </p>
+            </div>
+            <p className="tabular font-display text-5xl font-extrabold leading-none">
               {goalsFor}
               <span className="text-muted"> – </span>
               {goalsAgainst}
             </p>
           </div>
-          <p className="tabular text-xs text-muted">
-            Total {formatClock(clock.elapsedMs)} · {match.opponent ? `vs ${match.opponent}` : ""}
-          </p>
           {timeUp && (
-            <p className="mt-2 rounded-lg bg-pos-arq/15 px-2 py-1 text-sm font-semibold text-pos-arq" role="status">
-              ⏱ Se cumplieron los {periodMinutes}&apos; del tiempo
+            <p className="flex items-center gap-1.5 rounded-lg bg-pos-arq/20 px-2 py-1 text-sm font-semibold text-pos-arq" role="status">
+              <Icon name="clock" size={16} /> Se cumplieron los {periodMinutes}&apos; del tiempo
             </p>
           )}
           {!wakeLockOk && (
-            <p className="mt-2 text-xs text-muted">Tu navegador no puede mantener la pantalla encendida: desactivá el bloqueo automático.</p>
+            <p className="text-xs text-muted">Tu navegador no puede mantener la pantalla encendida: desactivá el bloqueo automático.</p>
           )}
-          <div className="mt-3 flex gap-2">
+          <div className="flex gap-2">
             {!state.inPeriod && !state.ended && periodIndex + 1 < periodCount && (
               <Button className="flex-1" onClick={() => log([{ type: "period_start", periodIndex: periodIndex + 1 }])}>
-                ▶ Empezar {periodIndex + 2}º tiempo
+                <span className="inline-flex items-center gap-1.5">
+                  <Icon name="play" size={18} /> Empezar {periodIndex + 2}º tiempo
+                </span>
               </Button>
             )}
             {state.inPeriod && (
               <>
                 <Button variant="secondary" className="flex-1" onClick={() => log([{ type: clock.running ? "pause" : "resume" }])}>
-                  {clock.running ? "⏸ Pausar" : "▶ Reanudar"}
+                  <span className="inline-flex items-center gap-1.5">
+                    <Icon name={clock.running ? "pause" : "play"} size={18} />
+                    {clock.running ? "Pausar" : "Reanudar"}
+                  </span>
                 </Button>
                 {periodIndex + 1 < periodCount ? (
                   <Button variant={timeUp ? "primary" : "secondary"} className="flex-1" onClick={() => log([{ type: "period_end", periodIndex }])}>
@@ -251,9 +267,9 @@ export function LiveMatch() {
 
         {/* Sugerencias de cambio (RF-17) */}
           {pairs.length > 0 && (
-            <section className="slide-up rounded-2xl border-2 border-accent bg-surface p-3 shadow-lg" aria-live="polite">
+            <section className="slide-up rounded-2xl border-2 border-accent bg-raised p-3 shadow-lg" aria-live="polite">
               <div className="mb-2 flex items-center justify-between gap-2">
-                <h2 className="font-semibold">Cambios sugeridos · {boundary}&apos;</h2>
+                <h2 className="font-display text-lg font-extrabold uppercase tracking-wide">Cambios sugeridos · {boundary}&apos;</h2>
                 {pairs.length > 1 && (
                   <Button className="min-h-9 px-3 text-sm" onClick={() => confirm(pairs.map((p) => p.sub))}>
                     Confirmar todos
@@ -267,27 +283,32 @@ export function LiveMatch() {
                   const open = picker?.key === key ? picker.side : null;
                   const candidates = open === "in" ? alternativesIn(sub, others, ctx) : open === "out" ? alternativesOut(sub, others, ctx) : [];
                   return (
-                    <li key={key} className="rounded-xl bg-background p-3">
-                      <div className="mb-1 flex items-center justify-between">
+                    <li key={key} className="rounded-xl bg-background/60 p-2">
+                      <div className="mb-1.5 flex items-center justify-between">
                         <PosChip pos={sub.position} />
                         {edited && <span className="text-[11px] text-muted">Modificado por el DT</span>}
                       </div>
-                      <SubSlot
-                        arrow="↓"
-                        tone="text-pos-del"
-                        name={sub.outId ? displayName(byId.get(sub.outId)) : "Lugar libre"}
-                        detail={sub.outId ? `${Math.round(minutesOf(sub.outId))}' jugados` : "falta un jugador en cancha"}
-                        active={open === "out"}
-                        onChange={sub.outId ? () => setPicker(open === "out" ? null : { key, side: "out" }) : undefined}
-                      />
-                      <SubSlot
-                        arrow="↑"
-                        tone="text-pos-med"
-                        name={displayName(byId.get(sub.inId))}
-                        detail={`${Math.round(minutesOf(sub.inId))}' jugados`}
-                        active={open === "in"}
-                        onChange={() => setPicker(open === "in" ? null : { key, side: "in" })}
-                      />
+                      <div className="flex items-stretch gap-1.5">
+                        <SubCard
+                          kind="out"
+                          player={sub.outId ? byId.get(sub.outId) : undefined}
+                          pos={sub.position}
+                          detail={sub.outId ? `${Math.round(minutesOf(sub.outId))}' jugados` : "falta un jugador"}
+                          active={open === "out"}
+                          onChange={sub.outId ? () => setPicker(open === "out" ? null : { key, side: "out" }) : undefined}
+                        />
+                        <span className="self-center text-accent-ink">
+                          <Icon name="arrowRight" size={20} />
+                        </span>
+                        <SubCard
+                          kind="in"
+                          player={byId.get(sub.inId)}
+                          pos={sub.position}
+                          detail={pendingText(sub.inId)}
+                          active={open === "in"}
+                          onChange={() => setPicker(open === "in" ? null : { key, side: "in" })}
+                        />
+                      </div>
                       {open && (
                         <CandidateList
                           title={open === "in" ? "¿Quién entra?" : "¿Quién sale?"}
@@ -338,71 +359,70 @@ export function LiveMatch() {
         )}
 
         {/* Cancha (RF-16) */}
-        <section aria-label="En cancha" className="rounded-2xl bg-accent/10 p-3">
-          {(manual || manualOut) && (
-            <p className="mb-2 text-sm font-semibold" role="status">
-              {manualOut
-                ? `Cambio manual: sale ${displayName(byId.get(manualOut))}. Tocá quién entra en el banco.`
-                : "Cambio manual: tocá quién sale."}{" "}
-              <button
-                className="min-h-11 text-muted underline"
-                onClick={() => {
-                  setManual(false);
-                  setManualOut(null);
-                }}
-              >
-                Cancelar
-              </button>
-            </p>
-          )}
-          {(["DEL", "MED", "DEF"] as const).map((pos) => {
-            const row = onField.filter(([, p]) => p === pos);
-            if (!row.length) return null;
-            return (
-              <div key={pos} className="mb-2 flex flex-wrap justify-center gap-2">
-                {row.map(([pid]) => (
-                  <PlayerDot
-                    key={pid}
-                    player={byId.get(pid)}
-                    pos={pos}
-                    minutes={minutesOf(pid)}
-                    quota={quota(pid)}
-                    selected={manualOut === pid}
-                    onClick={() => setManualOut(manualOut === pid ? null : pid)}
-                  />
-                ))}
-              </div>
-            );
-          })}
-          {state.goalkeeperId && (
-            <div className="flex justify-center">
-              <PlayerDot player={byId.get(state.goalkeeperId)} pos="ARQ" minutes={minutesOf(state.goalkeeperId)} quota="ok" />
-            </div>
-          )}
-        </section>
+        {(manual || manualOut) && (
+          <p className="rounded-xl bg-raised px-3 py-2 text-sm font-semibold" role="status">
+            {manualOut
+              ? `Cambio manual: sale ${displayName(byId.get(manualOut))}. Tocá quién entra en el banco.`
+              : "Cambio manual: tocá en la cancha quién sale."}{" "}
+            <button
+              className="min-h-11 text-muted underline"
+              onClick={() => {
+                setManual(false);
+                setManualOut(null);
+              }}
+            >
+              Cancelar
+            </button>
+          </p>
+        )}
+        <Pitch
+          players={onField.map(([pid, pos]) => ({
+            id: pid,
+            name: displayName(byId.get(pid)),
+            number: byId.get(pid)?.shirt_number,
+            pos,
+            minutes: minutesOf(pid),
+            quota: quota(pid),
+          }))}
+          goalkeeper={
+            state.goalkeeperId
+              ? {
+                  id: state.goalkeeperId,
+                  name: displayName(byId.get(state.goalkeeperId)),
+                  number: byId.get(state.goalkeeperId)?.shirt_number,
+                  minutes: minutesOf(state.goalkeeperId),
+                }
+              : null
+          }
+          selectedId={manualOut}
+          onPick={(pid) => setManualOut(manualOut === pid ? null : pid)}
+        />
 
         {/* Banco, ordenado por prioridad de entrada */}
         <section aria-label="Banco">
-          <h2 className="mb-1 text-sm font-semibold text-muted">Banco</h2>
-          <div className="flex flex-wrap gap-2">
+          <h2 className="mb-1 font-display text-sm font-bold uppercase tracking-widest text-muted">Banco · por prioridad</h2>
+          <div className="flex flex-wrap gap-1.5">
             {bench.map((s) => (
-              <PlayerDot
-                key={s.player.id}
-                player={byId.get(s.player.id)}
-                pos={s.player.primary}
-                minutes={minutesOf(s.player.id)}
-                quota={quota(s.player.id)}
-                small
-                onClick={
-                  manualOut
-                    ? async () => {
-                        await confirm([{ outId: manualOut, inId: s.player.id, position: state.onField.get(manualOut) ?? "MED" }]);
-                        setManualOut(null);
-                        setManual(false);
-                      }
-                    : undefined
-                }
-              />
+              <div key={s.player.id} className="rounded-xl bg-surface py-1">
+                <PlayerCard
+                  id={s.player.id}
+                  name={displayName(byId.get(s.player.id))}
+                  number={byId.get(s.player.id)?.shirt_number}
+                  pos={s.player.primary}
+                  minutes={minutesOf(s.player.id)}
+                  quota={quota(s.player.id)}
+                  small
+                  onClick={
+                    manualOut
+                      ? async () => {
+                          await confirm([{ outId: manualOut, inId: s.player.id, position: state.onField.get(manualOut) ?? "MED" }]);
+                          setManualOut(null);
+                          setManual(false);
+                        }
+                      : undefined
+                  }
+                />
+              </div>
             ))}
             {bench.length === 0 && <p className="text-sm text-muted">Nadie en el banco.</p>}
           </div>
@@ -414,10 +434,10 @@ export function LiveMatch() {
         </section>
 
         {/* Acciones rápidas */}
-        <nav aria-label="Acciones" className="sticky bottom-3 z-10 grid grid-cols-5 gap-1.5 rounded-2xl border border-border bg-surface/95 p-1.5 shadow-lg backdrop-blur">
-          <QuickAction icon="⚽" label="Gol" onClick={() => setAction("gol")} />
+        <nav aria-label="Acciones" className="sticky bottom-3 z-10 grid grid-cols-5 gap-1 rounded-2xl border border-border bg-surface/95 p-1.5 shadow-lg backdrop-blur">
+          <QuickAction icon="ball" label="Gol" onClick={() => setAction("gol")} />
           <QuickAction
-            icon="🔁"
+            icon="swap"
             label="Cambio"
             active={manual || !!manualOut}
             onClick={() => {
@@ -425,10 +445,10 @@ export function LiveMatch() {
               setManualOut(null);
             }}
           />
-          <QuickAction icon="🧤" label="Arquero" onClick={() => setAction("arquero")} />
-          <QuickAction icon="🩹" label="Lesión" onClick={() => setAction("lesion")} />
+          <QuickAction icon="glove" label="Arquero" onClick={() => setAction("arquero")} />
+          <QuickAction icon="injury" label="Lesión" onClick={() => setAction("lesion")} />
           <QuickAction
-            icon="↩︎"
+            icon="undo"
             label="Deshacer"
             disabled={!undoable.length || trailingUndos >= MAX_UNDO}
             onClick={() => {
@@ -503,74 +523,39 @@ export function LiveMatch() {
   );
 }
 
-function PlayerDot({
+/** Carta de un lado del cambio: SALE o ENTRA, con la camiseta y "Cambiar" (RF-17). */
+function SubCard({
+  kind,
   player,
   pos,
-  minutes,
-  quota,
-  selected,
-  small,
-  onClick,
-}: {
-  player: PlayerRow | undefined;
-  pos: Position;
-  minutes: number;
-  quota: "ok" | "over" | "under";
-  selected?: boolean;
-  small?: boolean;
-  onClick?: () => void;
-}) {
-  // Estado respecto de la cuota con color e ícono (RNF-09): ✓ en cuota, ▲ se pasa, ▼ le faltan.
-  const q = { ok: { ring: "ring-accent", icon: "✓", label: "en cuota" }, over: { ring: "ring-pos-arq", icon: "▲", label: "se está pasando" }, under: { ring: "ring-pos-def", icon: "▼", label: "le faltan minutos" } }[quota];
-  return (
-    <button
-      // Al confirmar un cambio, el jugador "viaja" entre la cancha y el banco (View Transitions).
-      style={player ? { viewTransitionName: `p-${player.id}` } : undefined}
-      onClick={onClick}
-      disabled={!onClick}
-      aria-label={`${displayName(player)}, ${Math.round(minutes)} minutos, ${q.label}`}
-      className={`flex w-[4.5rem] flex-col items-center gap-0.5 rounded-xl p-1 ${selected ? "bg-foreground/10" : ""}`}
-    >
-      <span
-        className={`relative grid ${small ? "size-10" : "size-12"} place-items-center rounded-full font-bold text-white ring-2 ring-offset-2 ring-offset-background ${POS_BG[pos]} ${q.ring}`}
-      >
-        {player?.shirt_number ?? pos[0]}
-        <span className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-surface text-[9px] text-foreground shadow" aria-hidden>
-          {q.icon}
-        </span>
-      </span>
-      <span className="w-full truncate text-center text-[11px] leading-tight">{displayName(player)}</span>
-      <span className="tabular text-[11px] text-muted">{Math.round(minutes)}&apos;</span>
-    </button>
-  );
-}
-
-function SubSlot({
-  arrow,
-  tone,
-  name,
   detail,
   active,
   onChange,
 }: {
-  arrow: string;
-  tone: string;
-  name: string;
+  kind: "out" | "in";
+  player: PlayerRow | undefined;
+  pos: FieldPosition;
   detail: string;
   active: boolean;
   onChange?: () => void;
 }) {
   return (
-    <div className="flex items-center gap-2 py-0.5">
-      <span className={`w-4 font-bold ${tone}`} aria-hidden>
-        {arrow}
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-medium">{name}</p>
-        <p className="text-[11px] text-muted">{detail}</p>
+    <div className="flex min-w-0 flex-1 flex-col gap-1.5 rounded-xl bg-surface p-2">
+      <div className="flex items-center gap-2">
+        <Jersey pos={pos} number={player?.shirt_number ?? pos} size={32} />
+        <div className="min-w-0">
+          <p className={`font-display text-[11px] font-bold uppercase tracking-widest ${kind === "out" ? "text-pos-del" : "text-pos-med"}`}>
+            {kind === "out" ? "Sale" : "Entra"}
+          </p>
+          <p className="truncate font-semibold leading-tight">{player ? displayName(player) : "Lugar libre"}</p>
+          <p className="truncate text-[11px] text-muted">{detail}</p>
+        </div>
       </div>
       {onChange && (
-        <button onClick={onChange} className={`min-h-9 rounded-md px-2 text-xs font-semibold ${active ? "bg-foreground text-background" : "bg-border/60"}`}>
+        <button
+          onClick={onChange}
+          className={`min-h-9 rounded-lg font-display text-xs font-bold uppercase tracking-wide ${active ? "bg-foreground text-background" : "bg-raised"}`}
+        >
           {active ? "Cerrar" : "Cambiar"}
         </button>
       )}
@@ -647,7 +632,7 @@ function QuickAction({
   disabled,
   active,
 }: {
-  icon: string;
+  icon: IconName;
   label: string;
   onClick: () => void;
   disabled?: boolean;
@@ -658,11 +643,9 @@ function QuickAction({
       onClick={onClick}
       disabled={disabled}
       aria-pressed={active}
-      className={`flex min-h-14 flex-col items-center justify-center rounded-xl text-[11px] font-medium transition active:scale-95 disabled:opacity-30 ${active ? "bg-accent text-accent-contrast" : ""}`}
+      className={`flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-xl font-display text-xs font-bold uppercase tracking-wide transition active:scale-95 disabled:opacity-30 ${active ? "bg-accent text-accent-contrast" : ""}`}
     >
-      <span className="text-xl leading-none" aria-hidden>
-        {icon}
-      </span>
+      <Icon name={icon} />
       {label}
     </button>
   );

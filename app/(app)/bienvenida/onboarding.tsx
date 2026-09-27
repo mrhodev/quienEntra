@@ -36,10 +36,10 @@ export function Onboarding() {
   return (
     <div className="space-y-5">
       <div>
-        <p className="text-sm font-semibold uppercase tracking-widest text-accent">
+        <p className="text-sm font-semibold uppercase tracking-widest text-accent-ink">
           {isNew ? "Nuevo equipo" : "Bienvenida"} · paso {step + 1} de 3
         </p>
-        <h1 className="mt-1 text-2xl font-bold">
+        <h1 className="mt-1 text-3xl">
           {["¿Cómo se llama tu equipo?", "Cargá tu plantel", "Armá el torneo"][step]}
         </h1>
       </div>

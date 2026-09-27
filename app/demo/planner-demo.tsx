@@ -67,7 +67,7 @@ export function PlannerDemo() {
         <Link href="/" className="text-sm text-muted">
           ← Inicio
         </Link>
-        <h1 className="text-lg font-bold">Planificador</h1>
+        <h1 className="text-2xl">Planificador</h1>
         <Link href="/demo/en-vivo" className="text-sm text-muted">
           En vivo →
         </Link>

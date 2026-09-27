@@ -190,7 +190,7 @@ export function LiveDemo() {
         <Link href="/demo" className="text-sm text-muted">
           ← Planificador
         </Link>
-        <h1 className="text-lg font-bold">En vivo</h1>
+        <h1 className="text-2xl">En vivo</h1>
         <button onClick={reset} className="text-sm text-muted">
           Reiniciar
         </button>

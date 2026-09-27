@@ -41,7 +41,7 @@ export function StatsPage() {
   if (!data) return null;
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">Estadísticas</h1>
+      <h1 className="text-3xl">Estadísticas</h1>
       <TournamentStats data={data} tournamentId={tournament?.id ?? null} />
     </div>
   );

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { ConfigEditor } from "@/components/config-editor";
+import { Icon } from "@/components/icons";
+import { Pitch } from "@/components/pitch";
 import { cycleLock, PlanGrid } from "@/components/plan-grid";
 import { Button, Card, PosChip, Segmented, Sheet, Stepper } from "@/components/ui";
 import { formatKickoff } from "@/lib/app/format";
@@ -13,10 +15,10 @@ import type { Attendance, MatchPlayerRow } from "@/lib/db/types";
 import { planRotation, type RotationConfig } from "@/lib/rotation";
 
 const ATTENDANCE: Record<Attendance, { label: string; icon: string; tone: string }> = {
-  present: { label: "Presente", icon: "✓", tone: "bg-accent/15 text-accent" },
+  present: { label: "Presente", icon: "✓", tone: "bg-accent/15 text-accent-ink" },
   absent: { label: "Ausente", icon: "✕", tone: "bg-border/60 text-muted" },
   injured: { label: "Lesionado", icon: "✚", tone: "bg-pos-del/15 text-pos-del" },
-  late: { label: "Llega tarde", icon: "⏱", tone: "bg-pos-arq/15 text-pos-arq" },
+  late: { label: "Llega tarde", icon: "◷", tone: "bg-pos-arq/15 text-pos-arq" },
 };
 const NEXT: Record<Attendance, Attendance> = { present: "absent", absent: "injured", injured: "late", late: "present" };
 
@@ -80,7 +82,7 @@ export function Pregame() {
           <Link href="/partidos" className="text-sm text-muted">
             ← Partidos
           </Link>
-          <h1 className="truncate text-xl font-bold">
+          <h1 className="truncate text-3xl">
             {m.is_home === false ? "@ " : "vs "}
             {m.opponent || "Rival sin nombre"}
           </h1>
@@ -156,27 +158,31 @@ export function Pregame() {
                     >
                       <PosChip pos={s.player.primary} />
                       <span className="flex-1">{displayName(data.byId.get(s.player.id))}</span>
-                      {s.player.id === gk && <span className="text-sm text-pos-arq">🧤 Arquero</span>}
+                      {s.player.id === gk && (
+                        <span className="flex items-center gap-1 font-display text-sm font-bold uppercase text-pos-arq">
+                          <Icon name="glove" size={16} /> Arquero
+                        </span>
+                      )}
                     </button>
                   </li>
                 ))}
             </ul>
           </Card>
-          <Card>
-            <p className="mb-2 text-sm font-medium">Titulares propuestos</p>
-            <ul className="grid grid-cols-2 gap-2 text-sm">
-              {plan.windows[0]?.field
-                .slice()
-                .sort((a, b) => "DEFMEDDEL".indexOf(a.position) - "DEFMEDDEL".indexOf(b.position))
-                .map((f) => (
-                  <li key={f.playerId} className="flex items-center gap-2">
-                    <PosChip pos={f.position} />
-                    <span className="truncate">{displayName(data.byId.get(f.playerId))}</span>
-                  </li>
-                ))}
-            </ul>
-            <p className="mt-2 text-xs text-muted">Los elige el motor; para cambiarlos, fijá celdas en el plan.</p>
-          </Card>
+          <div className="space-y-1">
+            <p className="font-display text-sm font-bold uppercase tracking-widest text-muted">Titulares propuestos</p>
+            <Pitch
+              compact
+              label="Titulares propuestos"
+              players={(plan.windows[0]?.field ?? []).map((f) => ({
+                id: f.playerId,
+                name: displayName(data.byId.get(f.playerId)),
+                number: data.byId.get(f.playerId)?.shirt_number,
+                pos: f.position,
+              }))}
+              goalkeeper={gk ? { id: gk, name: displayName(data.byId.get(gk)), number: data.byId.get(gk)?.shirt_number } : null}
+            />
+            <p className="text-xs text-muted">Los elige el motor; para cambiarlos, fijá celdas en el plan.</p>
+          </div>
           <Button className="w-full" onClick={() => setStep("plan")}>
             Ver el plan
           </Button>
@@ -270,7 +276,7 @@ function EquityBar({
   return (
     <Card>
       <div className="mb-2 flex items-baseline justify-between">
-        <p className="text-sm font-medium">Minutos previstos (RF-14)</p>
+        <p className="font-display text-lg font-extrabold uppercase tracking-wide">Minutos previstos</p>
         <p className="text-xs text-muted">
           {mins.length ? `entre ${Math.round(Math.min(...mins))}' y ${Math.round(Math.max(...mins))}'` : ""}
         </p>
@@ -287,7 +293,7 @@ function EquityBar({
                 title="Cuota justa"
               />
             </div>
-            <span className="tabular w-8 text-right">{Math.round(m)}&apos;</span>
+            <span className="tabular w-8 text-right font-display text-base font-extrabold">{Math.round(m)}&apos;</span>
           </li>
         ))}
       </ul>

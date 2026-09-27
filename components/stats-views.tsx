@@ -3,9 +3,11 @@
 import { useMemo, useState } from "react";
 import { formatDate, pct } from "@/lib/app/format";
 import { positionsPlayed, record, type StatsDataset } from "@/lib/stats/dataset";
+import type { Position } from "@/lib/rotation";
 import { equity, heatmap, tournamentTable } from "@/lib/stats/tournament";
 import { Bars, Heatmap } from "./charts";
 import { PlayerInfographic, ShareSheet, TournamentInfographic } from "./infographic";
+import { Jersey } from "./jersey";
 import { Button, Card, Empty, Segmented } from "./ui";
 
 type Tab = "tabla" | "mapa" | "jugador";
@@ -48,7 +50,7 @@ export function TournamentStats({ data, tournamentId }: { data: StatsDataset; to
         value={tab}
         onChange={setTab}
         options={[
-          { value: "tabla", label: "Tabla" },
+          { value: "tabla", label: "Ranking" },
           { value: "mapa", label: "Mapa de calor" },
           { value: "jugador", label: "Jugador" },
         ]}
@@ -56,8 +58,57 @@ export function TournamentStats({ data, tournamentId }: { data: StatsDataset; to
 
       {tab === "tabla" && (
         <>
+          <div className="grid grid-cols-3 gap-2">
+            <Tile value={String(view.matches.length)} label="partidos" />
+            <Tile value={`${rec.won}-${rec.drawn}-${rec.lost}`} label="G-E-P" />
+            <Tile value={`±${Math.round(view.eq.stdDev * 100)}`} label="equidad (pp)" accent />
+          </div>
+          {topScorer && topScorer.goals > 0 && (
+            <div className="flex items-center gap-3 rounded-2xl border-2 border-pos-arq bg-raised p-3">
+              <Jersey pos={mainPosition(view.rows, topScorer.playerId)} number={data.players.find((p) => p.id === topScorer.playerId)?.number ?? ""} size={52} />
+              <div className="min-w-0 flex-1">
+                <p className="font-display text-xs font-bold uppercase tracking-widest text-pos-arq">Goleador</p>
+                <p className="truncate font-display text-2xl font-extrabold leading-tight">{name.get(topScorer.playerId)}</p>
+                <p className="text-xs text-muted">
+                  {Math.round(topScorer.playedSeconds / 60)}&apos; · {pct(topScorer.playedShare)} jugado
+                </p>
+              </div>
+              <p className="font-display text-5xl font-extrabold text-pos-arq">{topScorer.goals}</p>
+            </div>
+          )}
+          <Card className="space-y-1.5">
+            <div className="flex items-baseline justify-between">
+              <p className="font-display text-lg font-extrabold uppercase tracking-wide">Minutos en el torneo</p>
+              <p className="text-xs text-muted">% jugado</p>
+            </div>
+            <ol className="space-y-1.5">
+              {view.totals.map((t, i) => {
+                const max = Math.max(1, view.totals[0]?.playedSeconds ?? 1);
+                const below = view.eq.below.includes(t.playerId);
+                return (
+                  <li key={t.playerId} className="flex min-h-9 items-center gap-2">
+                    <span className="tabular w-5 text-center font-display font-extrabold text-muted">{i + 1}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="truncate font-semibold">{name.get(t.playerId)}</span>
+                        <span className="tabular font-display font-extrabold">{Math.round(t.playedSeconds / 60)}&apos;</span>
+                      </div>
+                      <div className="h-1.5 overflow-hidden rounded-full bg-background">
+                        <div className="h-full rounded-full bg-accent" style={{ width: `${(t.playedSeconds / max) * 100}%` }} />
+                      </div>
+                    </div>
+                    <span className={`tabular w-16 shrink-0 whitespace-nowrap text-right text-sm font-semibold ${below ? "text-pos-def" : ""}`}>
+                      {below && <span aria-hidden>▼ </span>}
+                      {pct(t.playedShare)}
+                      {below && <span className="sr-only"> (por debajo del promedio)</span>}
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
+          </Card>
           <Card>
-            <p className="text-sm font-medium">Equidad del plantel (RF-30)</p>
+            <p className="font-display text-lg font-extrabold uppercase tracking-wide">Equidad del plantel</p>
             <p className="mt-1 text-sm text-muted">
               Promedio jugado: <strong className="text-foreground">{pct(view.eq.mean)}</strong> de los minutos disponibles, con un desvío de{" "}
               <strong className="text-foreground">{Math.round(view.eq.stdDev * 100)} puntos</strong>.
@@ -189,6 +240,12 @@ export function TournamentStats({ data, tournamentId }: { data: StatsDataset; to
   );
 }
 
+/** Posición en la que más minutos jugó (para colorear su camiseta). */
+function mainPosition(rows: StatsDataset["rows"], playerId: string): Position {
+  const top = positionsPlayed(rows.filter((r) => r.player_id === playerId).flatMap((r) => r.stints))[0]?.position;
+  return top === "ARQ" || top === "DEF" || top === "MED" || top === "DEL" ? top : "MED";
+}
+
 function perMatch(matches: StatsDataset["matches"], rows: StatsDataset["rows"], playerId: string) {
   return matches.map((m, i) => {
     const r = rows.find((x) => x.match_id === m.id && x.player_id === playerId);
@@ -259,10 +316,19 @@ function PlayerSheet({
   );
 }
 
+function Tile({ value, label, accent }: { value: string; label: string; accent?: boolean }) {
+  return (
+    <div className={`rounded-2xl p-3 ${accent ? "bg-accent text-accent-contrast" : "bg-surface"}`}>
+      <p className="tabular font-display text-3xl font-extrabold leading-none">{value}</p>
+      <p className={`mt-1 text-xs ${accent ? "font-semibold" : "text-muted"}`}>{label}</p>
+    </div>
+  );
+}
+
 function Metric({ value, label }: { value: string; label: string }) {
   return (
     <div>
-      <p className="tabular text-xl font-bold">{value}</p>
+      <p className="tabular font-display text-2xl font-extrabold">{value}</p>
       <p className="text-xs text-muted">{label}</p>
     </div>
   );

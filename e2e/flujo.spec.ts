@@ -2,6 +2,11 @@ import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { login, rest, waitSynced } from "./helpers";
 
+/** Con E2E_SHOTS=<carpeta>, guarda capturas de las pantallas para revisar el diseño. */
+async function shot(page: Page, name: string) {
+  if (process.env.E2E_SHOTS) await page.screenshot({ path: `${process.env.E2E_SHOTS}/${name}.png`, fullPage: true });
+}
+
 const ROSTER = [
   "1 Tomi ARQ",
   "2 Benja DEF",
@@ -35,9 +40,11 @@ async function setupMatch(page: Page) {
   await page.getByRole("button", { name: "Crear y armar la previa" }).click();
   await expect(page.getByRole("heading", { name: "vs Rival FC" })).toBeVisible();
   await page.getByRole("button", { name: "Siguiente" }).click();
-  await expect(page.getByText("🧤 Arquero")).toBeVisible();
+  await expect(page.getByRole("button", { pressed: true })).toContainText("Arquero");
+  await shot(page, "2-previa-arquero");
   await page.getByRole("button", { name: "Ver el plan" }).click();
   await expect(page.getByRole("table")).toBeVisible();
+  await shot(page, "3-previa-plan");
 
 }
 
@@ -57,6 +64,7 @@ test("del login al resumen, con cambios sugeridos, sin conexión y vista públic
   // Sugerencia a los 5': cambiar quién entra y confirmar (RF-17).
   const card = page.getByText(/Cambios sugeridos · 5'/);
   await expect(card).toBeVisible();
+  await shot(page, "4-vivo-sugerencia");
   await page.getByRole("button", { name: "Cambiar" }).nth(1).click();
   const options = page.getByText("¿Quién entra?").locator("..").locator("button:not([aria-current])");
   await options.first().click();
@@ -84,6 +92,7 @@ test("del login al resumen, con cambios sugeridos, sin conexión y vista públic
   await page.getByRole("button", { name: "Terminar y ver el resumen" }).click();
   await expect(page.getByText(/Todos jugaron/).first()).toBeVisible();
   await expect(page.getByText("1–0")).toBeVisible();
+  await shot(page, "5-resumen");
 
   await expect(page.getByRole("button", { name: /Sin conexión/ }).first()).toBeVisible({ timeout: 5_000 }).catch(() => {});
 
@@ -111,6 +120,10 @@ test("del login al resumen, con cambios sugeridos, sin conexión y vista públic
   // Estadísticas del DT.
   await page.getByRole("link", { name: /Estadísticas/ }).click();
   await expect(page.getByRole("columnheader", { name: "PP" })).toBeVisible();
+  await shot(page, "6-estadisticas");
+  await page.getByRole("link", { name: /Plantel/ }).click();
+  await expect(page.getByRole("heading", { name: "Plantel" })).toBeVisible();
+  await shot(page, "7-plantel");
 
   // Link público (RF-03, RF-31, CA-07).
   await page.getByRole("link", { name: /Ajustes/ }).click();

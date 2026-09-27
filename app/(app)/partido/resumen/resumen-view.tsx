@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Gantt } from "@/components/charts";
+import { Icon } from "@/components/icons";
 import { MatchInfographic, ShareSheet } from "@/components/infographic";
-import { Button, Card, PosChip, Sheet } from "@/components/ui";
+import { Button, Card, PosChip, readableAccent, Sheet } from "@/components/ui";
 import { useCurrent } from "@/lib/app/data";
 import { formatDate, formatKickoff } from "@/lib/app/format";
 import { displayName, useMatchData } from "@/lib/app/match-data";
@@ -61,17 +62,22 @@ export function MatchSummary() {
         </Link>
         <div className="mt-1 flex items-end justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="truncate text-xl font-bold">
+            <h1 className="truncate text-3xl">
               {m.is_home === false ? "@ " : "vs "}
               {m.opponent || "Rival sin nombre"}
             </h1>
             <p className="text-sm text-muted">{formatKickoff(m.kickoff_at)}</p>
           </div>
-          <p className="tabular text-4xl font-bold">
+          <p className="tabular font-display text-5xl font-extrabold leading-none">
             {m.goals_for}–{m.goals_against}
           </p>
         </div>
-        {scorers.length > 0 && <p className="mt-1 text-sm">⚽ {scorers.join(", ")}</p>}
+        {scorers.length > 0 && (
+          <p className="mt-1 flex items-center gap-1.5 text-sm">
+            <Icon name="ball" size={16} />
+            <span className="sr-only">Goles:</span> {scorers.join(", ")}
+          </p>
+        )}
       </header>
 
       <Card>
@@ -140,7 +146,7 @@ export function MatchSummary() {
             format={format}
             info={{
               teamName: team?.name ?? "",
-              color: team?.color ?? "#16a34a",
+              color: readableAccent(team?.color ?? "#00e0c6"),
               opponent: m.opponent || "Rival",
               date: formatDate(m.kickoff_at ?? m.created_at),
               goalsFor: m.goals_for,

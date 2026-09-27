@@ -13,7 +13,7 @@ const STATUS: Record<MatchStatus, { label: string; tone: string }> = {
   draft: { label: "Borrador", tone: "bg-border/60 text-muted" },
   planned: { label: "Planificado", tone: "bg-pos-def/15 text-pos-def" },
   live: { label: "● En juego", tone: "bg-pos-del/15 text-pos-del" },
-  finished: { label: "Final", tone: "bg-accent/15 text-accent" },
+  finished: { label: "Final", tone: "bg-accent/15 text-accent-ink" },
 };
 
 export function matchHref(m: MatchRow): string {
@@ -31,7 +31,7 @@ export function Matches() {
   if (!tournament)
     return (
       <Empty title="No hay torneos">
-        <Link href="/ajustes?torneo=nuevo" className="text-accent">
+        <Link href="/ajustes?torneo=nuevo" className="text-accent-ink">
           Crear un torneo
         </Link>
       </Empty>
@@ -42,21 +42,21 @@ export function Matches() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">Partidos</h1>
+      <h1 className="text-3xl">Partidos</h1>
 
       {matches && matches.length === 0 && <Empty title="Todavía no hay partidos">Creá el primero con el botón de abajo.</Empty>}
 
       {upcoming.length > 0 && <MatchList matches={upcoming} />}
       {played.length > 0 && (
         <section>
-          <h2 className="mb-2 text-sm font-semibold text-muted">Jugados</h2>
+          <h2 className="mb-2 font-display text-sm font-bold uppercase tracking-widest text-muted">Jugados</h2>
           <MatchList matches={played} />
         </section>
       )}
 
       <button
         onClick={() => setCreating(true)}
-        className="fixed bottom-20 right-4 z-10 min-h-14 rounded-full bg-accent px-5 font-semibold text-accent-contrast shadow-lg transition active:scale-95 sm:right-[calc(50%-14rem)]"
+        className="fixed bottom-20 right-4 z-10 min-h-14 rounded-full bg-accent px-5 font-display text-lg font-extrabold uppercase tracking-wide text-accent-contrast shadow-lg transition active:scale-95 sm:right-[calc(50%-14rem)]"
       >
         + Nuevo partido
       </button>
@@ -75,7 +75,7 @@ function MatchList({ matches }: { matches: MatchRow[] }) {
         <li key={m.id}>
           <Link href={matchHref(m)} className="block rounded-2xl border border-border bg-surface p-4 transition active:scale-[0.99]">
             <div className="flex items-center justify-between gap-2">
-              <p className="truncate font-semibold">
+              <p className="truncate font-display text-xl font-extrabold uppercase">
                 {m.is_home === false ? "@ " : "vs "}
                 {m.opponent || "Rival sin nombre"}
               </p>
@@ -86,7 +86,7 @@ function MatchList({ matches }: { matches: MatchRow[] }) {
             <div className="mt-1 flex items-center justify-between text-sm text-muted">
               <span>{formatKickoff(m.kickoff_at)}</span>
               {(m.status === "live" || m.status === "finished") && (
-                <span className="tabular text-base font-bold text-foreground">
+                <span className="tabular font-display text-2xl font-extrabold text-foreground">
                   {m.goals_for} – {m.goals_against}
                 </span>
               )}

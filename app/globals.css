@@ -1,62 +1,77 @@
 @import "tailwindcss";
 
+/* Estilo "Fantasy" (§8.1): fondo índigo, cartas de jugador y tipografía condensada.
+   Oscuro por defecto; "Claro" en Ajustes para leer al sol (RNF-04). */
 :root {
-  --background: #f6f7f5;
-  --surface: #ffffff;
-  --foreground: #14181f;
-  --muted: #5d6673;
-  --border: #e3e6e2;
-  --accent: #16a34a;
-  --accent-contrast: #ffffff;
-  --pos-def: #2563eb;
-  --pos-med: #16a34a;
-  --pos-del: #dc2626;
-  --pos-arq: #d97706;
+  color-scheme: dark;
+  --background: #0f0a26;
+  --surface: #1d1447;
+  --raised: #22175a;
+  --foreground: #ffffff;
+  --muted: #c9c2ee;
+  --border: #3a2f7a;
+  --accent: #00e0c6;
+  --accent-contrast: #0f0a26;
+  /* Acento usado como texto: en oscuro, el mismo color. */
+  --accent-ink: var(--accent);
+  --pos-def: #59a8ff;
+  --pos-med: #3ddc84;
+  --pos-del: #ff7a7a;
+  --pos-arq: #ffc247;
+  --pitch-a: #1c7446;
+  --pitch-b: #208050;
+  --pitch-line: rgba(255, 255, 255, 0.35);
 }
 
-/* Tema oscuro: automático según el sistema, o forzado desde Ajustes (data-theme). */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --background: #0e1113;
-    --surface: #171b1f;
-    --foreground: #eef1f3;
-    --muted: #9aa4af;
-    --border: #262c33;
-    --accent: #22c55e;
-    --accent-contrast: #06140b;
-    --pos-def: #60a5fa;
-    --pos-med: #4ade80;
-    --pos-del: #f87171;
-    --pos-arq: #fbbf24;
-  }
-}
-:root[data-theme="dark"] {
-    --background: #0e1113;
-    --surface: #171b1f;
-    --foreground: #eef1f3;
-    --muted: #9aa4af;
-    --border: #262c33;
-    --accent: #22c55e;
-    --accent-contrast: #06140b;
-    --pos-def: #60a5fa;
-    --pos-med: #4ade80;
-    --pos-del: #f87171;
-    --pos-arq: #fbbf24;
+:root[data-theme="light"] {
+  color-scheme: light;
+  --background: #f4f2fb;
+  --surface: #ffffff;
+  --raised: #ece9f8;
+  --foreground: #140f33;
+  --muted: #564f7d;
+  --border: #dcd8ee;
+  /* En claro, el acento como texto se oscurece para llegar al contraste AA (RNF-09). */
+  --accent-ink: color-mix(in oklab, var(--accent) 50%, #0b0820);
+  --pos-def: #1f6fd6;
+  --pos-med: #13874a;
+  --pos-del: #d33a3a;
+  --pos-arq: #b7780a;
+  --pitch-a: #2e8a57;
+  --pitch-b: #339460;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
+  --color-raised: var(--raised);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-border: var(--border);
   --color-accent: var(--accent);
   --color-accent-contrast: var(--accent-contrast);
+  --color-accent-ink: var(--accent-ink);
   --color-pos-def: var(--pos-def);
   --color-pos-med: var(--pos-med);
   --color-pos-del: var(--pos-del);
   --color-pos-arq: var(--pos-arq);
-  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans: var(--font-saira), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-saira-condensed), var(--font-saira), system-ui, sans-serif;
+}
+
+/* Títulos y cifras en condensada, en mayúsculas (estilo Fantasy). */
+h1 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+/* Cancha rayada (en vivo y previa). */
+.pitch {
+  background: repeating-linear-gradient(180deg, var(--pitch-a) 0 36px, var(--pitch-b) 36px 72px);
+  border: 2px solid color-mix(in oklab, var(--pitch-b), white 20%);
 }
 
 body {

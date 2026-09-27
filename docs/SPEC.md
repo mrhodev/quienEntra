@@ -2,7 +2,7 @@
 
 > Documento base para desarrollo guiado por especificación (spec-driven development).
 > Cada requisito tiene un ID (`RF-xx`, `RNF-xx`) para referenciarlo desde issues, commits y tests.
-> Versión 1.3 · 2026-09-26
+> Versión 1.4 · 2026-09-27
 
 ---
 
@@ -150,7 +150,7 @@ Es un SaaS multiusuario: cualquier DT puede registrarse y crear sus equipos.
 - **RNF-01 Mobile-first**: diseñada para 360–430 px de ancho, usable con una mano y con objetivos táctiles de al menos 44 px. En escritorio se ve centrada.
 - **RNF-02 Liviana**: el JS propio de la ruta de partido en vivo no supera los 60 KB gzip por encima del framework (medido en la beta: 224 KB en total, de los cuales 170 KB son Next.js 16 + React 19 en una página vacía; la meta original de 150 KB totales está por debajo de ese piso). Supabase y la captura de infografías se cargan a demanda, fuera del JS inicial. LCP por debajo de 2 s en 4G.
 - **RNF-03 Transiciones**: animaciones de 150–300 ms en cambios de vista, al entrar o salir jugadores (View Transitions API, sin librerías) y en las tarjetas de sugerencia (CSS). Se respeta `prefers-reduced-motion`. En navegadores sin View Transitions, el cambio es inmediato.
-- **RNF-04 Legibilidad al sol**: alto contraste, tema claro por defecto y tema oscuro opcional. Números grandes en el cronómetro.
+- **RNF-04 Legibilidad al sol**: alto contraste y números grandes en el cronómetro. El tema por defecto es el oscuro del estilo Fantasy (§8.1, v1.4); en Ajustes se elige el tema **claro para leer al sol**, con la misma estética.
 - **RNF-05 Precisión del cronómetro**: el tiempo se calcula a partir de marcas de tiempo (`Date.now()`) y no de contadores de `setInterval`. Sobrevive al bloqueo de pantalla, a pasar la app a segundo plano y a recargar la página, con un error menor a 1 s.
 - **RNF-06 Seguridad**: Row Level Security en todas las tablas. La vista pública accede solo mediante funciones o vistas que filtran por equipo público.
 - **RNF-07 Costo cero**: debe caber en los límites gratuitos de Vercel Hobby y Supabase Free (500 MB de base de datos, 50k usuarios activos por mes).
@@ -392,8 +392,10 @@ Navegación inferior con 4 tabs: **Partido** · **Plantel** · **Estadísticas**
 9. **Ajustes**: configuración del torneo, link público (activar, copiar, regenerar) y tema.
 
 ### 8.1 Lineamientos visuales
-- Paleta sobria con un color de acento, que es el color del equipo.
-- Tipografía del sistema (sin fuentes web) para mantener el bundle chico. Cifras tabulares en el cronómetro y en los minutos.
+- **Estilo "Fantasy"** (v1.4): fondo índigo oscuro, jugadores como **cartas** (camiseta con el número coloreada por posición, nombre en una plaqueta y minutos), la cancha rayada con los jugadores formados por línea, y cifras y títulos en tipografía condensada en mayúsculas. Íconos de trazo propios, sin emojis.
+- Colores por posición: DEF azul, MED verde, DEL coral, ARQ ámbar. Un solo color de acento, que es el color del equipo. Un color de equipo muy oscuro se aclara hasta que se lea sobre el fondo; en el tema claro, el acento usado como texto se oscurece para llegar a contraste AA.
+- Tipografía: Saira (texto) y Saira Condensed (títulos y cifras), autoalojadas con `next/font`: sin pedidos a Google y disponibles sin conexión. Cifras tabulares en el cronómetro y en los minutos.
+- Las infografías usan la misma paleta oscura y tipografías.
 - Transiciones: View Transitions para jugador ↔ banco, *slide* para las hojas modales y la tarjeta de sugerencia. Siempre con `prefers-reduced-motion`.
 
 ---

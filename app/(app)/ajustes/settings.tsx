@@ -30,7 +30,7 @@ export function Settings() {
   if (!team) return null;
   return (
     <div className="space-y-5">
-      <h1 className="text-xl font-bold">Ajustes</h1>
+      <h1 className="text-3xl">Ajustes</h1>
       <TeamSection key={team.id} team={team} />
       <PublicLink team={team} />
       {tournament ? (
@@ -188,7 +188,7 @@ function TournamentSection({ tournament, onNew }: { tournament: TournamentRow; o
         </Button>
       )}
       <p className="text-xs text-muted">Los partidos ya creados conservan su configuración.</p>
-      <button className="min-h-11 text-sm text-accent" onClick={onNew}>
+      <button className="min-h-11 text-sm text-accent-ink" onClick={onNew}>
         + Nuevo torneo
       </button>
     </Section>
@@ -212,8 +212,7 @@ function NewTournament({ teamId, base, onDone }: { teamId: string; base: Rotatio
 }
 
 function ThemeSection() {
-  const saved = usePref("theme");
-  const theme = (saved === "light" || saved === "dark" ? saved : "system") as Theme;
+  const theme: Theme = usePref("theme") === "light" ? "light" : "dark";
   return (
     <Section title="Tema">
       <Segmented
@@ -221,9 +220,8 @@ function ThemeSection() {
         value={theme}
         onChange={applyTheme}
         options={[
-          { value: "system", label: "Automático" },
-          { value: "light", label: "Claro" },
           { value: "dark", label: "Oscuro" },
+          { value: "light", label: "Claro (al sol)" },
         ]}
       />
       <p className="text-xs text-muted">Al sol, el tema claro se lee mejor.</p>

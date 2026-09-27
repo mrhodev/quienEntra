@@ -8,9 +8,11 @@ import { Button, contrastOn, Segmented, Sheet } from "./ui";
 
 export type Format = "4:5" | "9:16";
 const SIZE: Record<Format, { w: number; h: number }> = { "4:5": { w: 1080, h: 1350 }, "9:16": { w: 1080, h: 1920 } };
-const INK = "#10151b";
-const MUTED = "#5d6673";
-const TRACK = "#e3e6e2";
+const INK = "#ffffff";
+const MUTED = "#c9c2ee";
+const TRACK = "#2a1f63";
+const BG = "#0f0a26";
+const DISPLAY = 'var(--font-saira-condensed), "Arial Narrow", sans-serif';
 
 function Frame({ format, color, children, footer }: { format: Format; color: string; children: ReactNode; footer?: string }) {
   const { w, h } = SIZE[format];
@@ -19,9 +21,9 @@ function Frame({ format, color, children, footer }: { format: Format; color: str
       style={{
         width: w,
         height: h,
-        background: "#ffffff",
+        background: BG,
         color: INK,
-        fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+        fontFamily: 'var(--font-saira), system-ui, sans-serif',
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
@@ -40,7 +42,7 @@ function Frame({ format, color, children, footer }: { format: Format; color: str
 function Big({ value, label }: { value: string; label: string }) {
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
-      <span style={{ fontSize: 76, fontWeight: 800, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{value}</span>
+      <span style={{ fontSize: 84, fontWeight: 800, lineHeight: 1, fontVariantNumeric: "tabular-nums", fontFamily: DISPLAY }}>{value}</span>
       <span style={{ fontSize: 26, color: MUTED, marginTop: 6 }}>{label}</span>
     </div>
   );
@@ -72,12 +74,12 @@ export function MatchInfographic({ info, format }: { info: MatchInfo; format: Fo
       <div>
         <div style={{ fontSize: 30, color: MUTED }}>{info.teamName}</div>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 24 }}>
-          <div style={{ fontSize: 56, fontWeight: 800, lineHeight: 1.1 }}>vs {info.opponent}</div>
-          <div style={{ fontSize: 96, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: info.color }}>
+          <div style={{ fontSize: 56, fontWeight: 800, lineHeight: 1.1, fontFamily: DISPLAY, textTransform: "uppercase" }}>vs {info.opponent}</div>
+          <div style={{ fontSize: 110, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: info.color, fontFamily: DISPLAY }}>
             {info.goalsFor}–{info.goalsAgainst}
           </div>
         </div>
-        {info.scorers.length > 0 && <div style={{ fontSize: 28, color: MUTED, marginTop: 8 }}>⚽ {info.scorers.join(", ")}</div>}
+        {info.scorers.length > 0 && <div style={{ fontSize: 28, color: MUTED, marginTop: 8 }}>Goles: {info.scorers.join(", ")}</div>}
       </div>
       <div style={{ background: info.color, color: contrastOn(info.color), borderRadius: 20, padding: "18px 28px", fontSize: 34, fontWeight: 700 }}>
         {info.equity}
@@ -88,7 +90,7 @@ export function MatchInfographic({ info, format }: { info: MatchInfo; format: Fo
           durationMs={info.durationMs}
           periodCutsMs={info.cutsMs}
           color={info.color}
-          gkColor="#d97706"
+          gkColor="#ffc247"
           textColor={INK}
           mutedColor={TRACK}
           rowHeight={rowHeight}
@@ -129,14 +131,14 @@ export function TournamentInfographic({ info, format }: { info: TournamentInfo; 
     <Frame format={format} color={info.color} footer={info.teamName}>
       <div>
         <div style={{ fontSize: 30, color: MUTED }}>{info.teamName}</div>
-        <div style={{ fontSize: 58, fontWeight: 800, lineHeight: 1.1 }}>{info.tournamentName}</div>
+        <div style={{ fontSize: 58, fontWeight: 800, lineHeight: 1.1, fontFamily: DISPLAY, textTransform: "uppercase" }}>{info.tournamentName}</div>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between" }}>
         <Big value={String(info.played)} label="partidos" />
         <Big value={`${info.won}-${info.drawn}-${info.lost}`} label="G-E-P" />
         <Big value={info.equity} label="equidad" />
       </div>
-      {info.topScorer && <div style={{ fontSize: 30 }}>⚽ Goleador: <b>{info.topScorer}</b></div>}
+      {info.topScorer && <div style={{ fontSize: 30 }}>Goleador: <b>{info.topScorer}</b></div>}
       <Heatmap
         rows={info.heat.rows}
         cols={info.heat.cols}
@@ -193,7 +195,7 @@ export function PlayerInfographic({ info, format }: { info: PlayerInfo; format: 
           {info.number ?? info.name[0]}
         </div>
         <div>
-          <div style={{ fontSize: 64, fontWeight: 800, lineHeight: 1.05 }}>{info.name}</div>
+          <div style={{ fontSize: 64, fontWeight: 800, lineHeight: 1.05, fontFamily: DISPLAY, textTransform: "uppercase" }}>{info.name}</div>
           <div style={{ fontSize: 30, color: MUTED }}>{info.positions}</div>
         </div>
       </div>

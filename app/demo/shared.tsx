@@ -82,7 +82,7 @@ export function Stat({ label, value, tone }: { label: string; value: string; ton
   return (
     <div className="rounded-2xl border border-border bg-surface px-2 py-3">
       <p
-        className={`tabular text-2xl font-bold ${tone === "good" ? "text-accent" : tone === "warn" ? "text-pos-del" : ""}`}
+        className={`tabular text-2xl font-bold ${tone === "good" ? "text-accent-ink" : tone === "warn" ? "text-pos-del" : ""}`}
       >
         {value}
       </p>

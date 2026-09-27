@@ -37,10 +37,10 @@ export function LoginForm() {
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-5 py-12">
       <div>
-        <Link href="/" className="text-sm font-semibold uppercase tracking-widest text-accent">
+        <Link href="/" className="text-sm font-semibold uppercase tracking-widest text-accent-ink">
           quienEntra
         </Link>
-        <h1 className="mt-2 text-3xl font-bold">Ingresar</h1>
+        <h1 className="mt-2 text-4xl">Ingresar</h1>
         <p className="mt-1 text-muted">Te mandamos un link a tu email; no hace falta contraseña.</p>
       </div>
 
@@ -50,7 +50,7 @@ export function LoginForm() {
           <p className="mt-1 text-sm text-muted">
             Te mandamos un link a <strong>{email}</strong>. Abrilo en este mismo dispositivo para entrar.
           </p>
-          <button className="mt-3 min-h-11 text-sm text-accent" onClick={() => setState("idle")}>
+          <button className="mt-3 min-h-11 text-sm text-accent-ink" onClick={() => setState("idle")}>
             Usar otro email
           </button>
         </div>
