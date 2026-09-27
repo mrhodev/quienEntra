@@ -11,7 +11,7 @@ import { useCurrent } from "@/lib/app/data";
 import { formatDate, formatKickoff } from "@/lib/app/format";
 import { displayName, useMatchData } from "@/lib/app/match-data";
 import { ganttRows, matchEquityText, periodCuts } from "@/lib/app/summaries";
-import { logEvents, updateMatch } from "@/lib/db/repo";
+import { deleteMatch, logEvents, updateMatch } from "@/lib/db/repo";
 import { effectiveEvents } from "@/lib/match/events";
 import { matchEndMs, matchPlayerStats } from "@/lib/stats/match";
 
@@ -23,6 +23,7 @@ export function MatchSummary() {
   const { team } = useCurrent();
   const [sharing, setSharing] = useState(false);
   const [reopen, setReopen] = useState(false);
+  const [remove, setRemove] = useState(false);
 
   const summary = useMemo(() => {
     if (data.loading) return null;
@@ -135,6 +136,26 @@ export function MatchSummary() {
           Editar
         </Button>
       </div>
+
+      <button onClick={() => setRemove(true)} className="min-h-11 w-full text-sm text-pos-del">
+        Borrar partido
+      </button>
+
+      <Sheet open={remove} onClose={() => setRemove(false)} title="¿Borrar el partido?">
+        <p className="mb-3 text-sm text-muted">
+          Deja de contar en las estadísticas del torneo y en la vista pública. Útil para borrar partidos de prueba.
+        </p>
+        <Button
+          variant="danger"
+          className="w-full"
+          onClick={async () => {
+            await deleteMatch(m);
+            router.replace("/partidos");
+          }}
+        >
+          Borrar
+        </Button>
+      </Sheet>
 
       <ShareSheet
         open={sharing}

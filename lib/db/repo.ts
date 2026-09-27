@@ -249,7 +249,16 @@ export function deviceId(): string {
   }
 }
 
-export async function logEvents(match: MatchRow, matchTimeMs: number, payloads: MatchEventPayload[]) {
+/**
+ * Registra eventos del partido. `wallTimeMs` es la hora de registro: la real, o la virtual
+ * en el modo simulación (RF-41), de la que sale el cronómetro.
+ */
+export async function logEvents(
+  match: MatchRow,
+  matchTimeMs: number,
+  payloads: MatchEventPayload[],
+  wallTimeMs: number = Date.now(),
+) {
   const d = db();
   const seq0 = await d.match_events.where("match_id").equals(match.id).count();
   const now = nowIso();
@@ -264,7 +273,7 @@ export async function logEvents(match: MatchRow, matchTimeMs: number, payloads: 
       type,
       payload,
       match_time_ms: Math.max(0, Math.round(matchTimeMs)),
-      wall_time: new Date(Date.now() + i).toISOString(),
+      wall_time: new Date(wallTimeMs + i).toISOString(),
       device_id: device,
       created_at: now,
       updated_at: now,

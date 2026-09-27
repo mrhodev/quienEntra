@@ -109,6 +109,11 @@ Es un SaaS multiusuario: cualquier DT puede registrarse y crear sus equipos.
 - **RF-22** **Registrar gol**: a favor (con autor, opcional) o en contra. Actualiza el marcador.
 - **RF-23** **Deshacer** el último evento, hasta 5 niveles.
 - **RF-24** La pantalla no se apaga durante el partido (Screen Wake Lock API, si está disponible).
+- **RF-41** **Modo simulación (solo beta)**: para probar un partido sin esperar los minutos reales. En la pantalla en vivo, un panel permite acelerar el reloj (×1, ×10, ×30, ×60) y adelantarlo (+1', +5', hasta el próximo cambio o hasta el fin del tiempo).
+  - Los eventos se registran con una hora **virtual** que avanza a esa velocidad. Como el cronómetro sale de las marcas de tiempo (RNF-05), el motor, las sugerencias y las estadísticas funcionan igual que en un partido real.
+  - El reloj virtual se guarda por partido en el dispositivo.
+  - Se activa solo en los builds de la rama `beta` y en desarrollo (`NEXT_PUBLIC_SIMULATION`, calculado en `next.config.ts`); en `main` no existe.
+  - Un partido de prueba cuenta en las estadísticas como cualquier otro: el resumen permite **borrar el partido**, que lo saca de las estadísticas y de la vista pública.
 - **RF-25** Finalizar partido: resumen con minutos por jugador, goles y marcador. El partido queda en estado `finished`, y editarlo después requiere confirmación.
 
 ### 4.6 Estadísticas

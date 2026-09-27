@@ -20,7 +20,8 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: `npx next build && npx next start -p ${PORT} -H 127.0.0.1`,
+    // SIMULATION=1: el build de prueba incluye el modo simulación (RF-41), como el de la beta.
+    command: `SIMULATION=1 npx next build && npx next start -p ${PORT} -H 127.0.0.1`,
     url: `http://127.0.0.1:${PORT}`,
     timeout: 300_000,
     reuseExistingServer: !process.env.CI,

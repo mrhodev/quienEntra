@@ -129,3 +129,24 @@ describe("deriveMatch", () => {
     expect(deriveMatch([other, ...events]).goalsFor).toBe(2);
   });
 });
+
+describe("reloj de simulación (RF-41)", () => {
+  it("acelera, cambia de velocidad sin saltos y adelanta; el cronómetro lo sigue", async () => {
+    const { simNow, withSpeed, jump } = await import("./sim");
+    const t0 = 1_000_000;
+    let sim = withSpeed(null, 30, t0);
+    expect(simNow(sim, t0 + 1000)).toBe(t0 + 30_000);
+    sim = withSpeed(sim, 60, t0 + 1000);
+    expect(simNow(sim, t0 + 1000)).toBe(t0 + 30_000);
+    expect(simNow(sim, t0 + 2000)).toBe(t0 + 90_000);
+    sim = jump(sim, 5 * MIN, t0 + 2000);
+    expect(simNow(sim, t0 + 2000)).toBe(t0 + 90_000 + 5 * MIN);
+    expect(simNow(jump(sim, -MIN, t0 + 2000), t0 + 2000)).toBe(simNow(sim, t0 + 2000));
+
+    // Con eventos registrados en hora virtual, el cronómetro avanza acelerado.
+    const { events, add } = log();
+    add(0, t0, { type: "period_start", periodIndex: 0 });
+    const running = withSpeed(null, 60, t0);
+    expect(clockAt(events, simNow(running, t0 + 5_000)).elapsedMs).toBe(5 * MIN);
+  });
+});

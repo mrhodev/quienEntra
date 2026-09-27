@@ -173,3 +173,45 @@ test("CA-11: la infografía del partido se genera sin conexión", async ({ page 
   await page.getByRole("dialog").getByRole("button", { name: "Compartir" }).click();
   expect((await download).suggestedFilename()).toBe("partido-rival-fc.png");
 });
+
+test("RF-41: modo simulación, el partido completo con el reloj acelerado", async ({ page }) => {
+  await login(page, `dt-sim-${Date.now()}@ejemplo.com`);
+  await setupMatch(page);
+  await page.getByRole("button", { name: "Empezar partido" }).click();
+  await page.getByRole("button", { name: /Empezar 1º tiempo/ }).click();
+  await expect(page.getByRole("button", { name: /Pausar/ })).toBeVisible();
+
+  // ×60: un minuto de partido por segundo real.
+  const sim = page.getByRole("region", { name: "Modo simulación" });
+  await sim.getByRole("button", { name: "×60" }).click();
+  await expect(sim.getByText("El reloj corre ×60")).toBeVisible();
+  await expect(page.getByText(/^0[2-9]:\d\d$/)).toBeVisible({ timeout: 10_000 });
+
+  // Adelantar hasta el próximo cambio: aparece la sugerencia.
+  await sim.getByRole("button", { name: "Próx. cambio" }).click();
+  await expect(page.getByText(/Cambios sugeridos · 5'/)).toBeVisible();
+  await page.getByRole("button", { name: "Confirmar todos" }).or(page.getByRole("button", { name: "Confirmar", exact: true })).first().click();
+
+  // Fin del primer tiempo, segundo tiempo y fin del partido, sin esperar.
+  await sim.getByRole("button", { name: "Fin del tiempo" }).click();
+  await expect(page.getByText(/Se cumplieron los 10'/)).toBeVisible();
+  await page.getByRole("button", { name: "Terminar tiempo" }).click();
+  await page.getByRole("button", { name: /Empezar 2º tiempo/ }).click();
+  await expect(page.getByRole("button", { name: /Pausar/ })).toBeVisible();
+  await sim.getByRole("button", { name: /Próx. cambio|Fin del tiempo/ }).click();
+  await sim.getByRole("button", { name: "Fin del tiempo" }).click();
+  await page.getByRole("button", { name: "Terminar partido" }).click();
+  await page.getByRole("button", { name: "Terminar y ver el resumen" }).click();
+  await expect(page.getByText(/Todos jugaron/).first()).toBeVisible();
+
+  // Los minutos del resumen son los del partido simulado (≈ 20'), no el tiempo real del test.
+  const minutes = await page.locator("tbody td:nth-child(2)").allInnerTexts();
+  const total = minutes.reduce((a, t) => a + Number(t.replace("'", "")), 0);
+  expect(total).toBeGreaterThanOrEqual(7 * 20 - 7);
+
+  // Borrar el partido de prueba.
+  await page.getByRole("button", { name: "Borrar partido" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Borrar" }).click();
+  await expect(page.getByRole("heading", { name: "Partidos" })).toBeVisible();
+  await expect(page.getByText("Rival FC")).toHaveCount(0);
+});

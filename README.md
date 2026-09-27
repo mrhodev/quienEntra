@@ -56,6 +56,10 @@ supabase/migrations/  esquema SQL + RLS
 docs/SPEC.md          especificación
 ```
 
+## Modo simulación (beta)
+
+En la rama `beta` y en desarrollo, la pantalla del partido en vivo muestra un panel para acelerar el reloj (×10, ×30, ×60) y adelantarlo, para probar un partido entero en segundos (RF-41). En `main` no aparece. Los partidos de prueba se borran desde su resumen.
+
 ## Deploy (beta)
 
 1. **Supabase**: creá un proyecto en supabase.com y aplicá las migraciones:

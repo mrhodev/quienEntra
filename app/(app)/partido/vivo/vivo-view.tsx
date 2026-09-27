@@ -15,7 +15,9 @@ import { finalizeMatch } from "@/lib/app/finalize";
 import { logEvents, updateMatch } from "@/lib/db/repo";
 import type { PlayerRow } from "@/lib/db/types";
 import { currentBoundaryMin } from "@/lib/match/boundary";
+import { saveSim, SIMULATION_ENABLED, useSim } from "@/lib/app/sim";
 import { clockAt, formatClock } from "@/lib/match/clock";
+import { jump, SIM_SPEEDS, simNow, withSpeed, type SimClock } from "@/lib/match/sim";
 import { minutesByPlayer } from "@/lib/match/derive";
 import { effectiveEvents, type MatchEvent, type MatchEventPayload } from "@/lib/match/events";
 import { alternativesIn, alternativesOut, dueSubs, withIn, withOut, type Candidate, type SwapContext } from "@/lib/match/suggestions";
@@ -46,8 +48,13 @@ async function withViewTransition(update: () => Promise<unknown>) {
 }
 
 /** Tiempo efectivo del partido en este instante (para registrar eventos). */
-function elapsedNow(events: MatchEvent[]): number {
-  return clockAt(events, Date.now()).elapsedMs;
+function elapsedNow(events: MatchEvent[], sim: SimClock | null): number {
+  return clockAt(events, virtualNow(sim)).elapsedMs;
+}
+
+/** Hora actual: la real, o la virtual del partido en el modo simulación (RF-41). */
+function virtualNow(sim: SimClock | null): number {
+  return simNow(sim, Date.now());
 }
 
 /** Partido en vivo (§8.6, RF-15..25). */
@@ -56,7 +63,9 @@ export function LiveMatch() {
   const router = useRouter();
   const data = useMatchData(id);
   const events = data.loading ? [] : data.events;
-  const now = useNow(!data.loading && data.match?.status === "live");
+  const sim = useSim(SIMULATION_ENABLED ? id : null);
+  const realNow = useNow(!data.loading && data.match?.status === "live", sim && sim.speed > 1 ? 250 : 500);
+  const now = simNow(sim, realNow);
   const clock = clockAt(events, now);
   const wakeLockOk = useWakeLock(!data.loading && data.match?.status === "live");
   const sound = usePref("sound") !== "off";
@@ -123,7 +132,8 @@ export function LiveMatch() {
   const duration = config.periods.reduce((a, p) => a + p.minutes, 0);
   const timeUp = state.inPeriod && clock.periodElapsedMs >= periodMinutes * MIN;
 
-  const log = (payloads: MatchEventPayload[], atMs = elapsedNow(events)) => logEvents(match, atMs, payloads);
+  const log = (payloads: MatchEventPayload[], atMs = elapsedNow(events, sim)) =>
+    logEvents(match, atMs, payloads, virtualNow(sim));
   const reset = () => {
     setEdits(new Map());
     setPicker(null);
@@ -264,6 +274,17 @@ export function LiveMatch() {
             )}
           </div>
         </header>
+
+        {SIMULATION_ENABLED && !state.ended && (
+          <SimulationPanel
+            sim={sim}
+            running={clock.running}
+            onSpeed={(speed) => saveSim(match.id, withSpeed(sim, speed, Date.now()))}
+            onJump={(ms) => saveSim(match.id, jump(sim, ms, Date.now()))}
+            nextChangeMs={nextSubs ? nextSubs.startMin * MIN - clock.elapsedMs + 1000 : null}
+            timeLeftMs={state.inPeriod ? periodMinutes * MIN - clock.periodElapsedMs : null}
+          />
+        )}
 
         {/* Sugerencias de cambio (RF-17) */}
           {pairs.length > 0 && (
@@ -648,5 +669,73 @@ function QuickAction({
       <Icon name={icon} />
       {label}
     </button>
+  );
+}
+
+/**
+ * Modo simulación (RF-41, solo beta): acelera el reloj del partido y permite adelantarlo,
+ * para probar el flujo completo sin esperar los minutos reales.
+ */
+function SimulationPanel({
+  sim,
+  running,
+  onSpeed,
+  onJump,
+  nextChangeMs,
+  timeLeftMs,
+}: {
+  sim: SimClock | null;
+  running: boolean;
+  onSpeed: (speed: number) => void;
+  onJump: (ms: number) => void;
+  nextChangeMs: number | null;
+  timeLeftMs: number | null;
+}) {
+  const speed = sim?.speed ?? 1;
+  return (
+    <section aria-label="Modo simulación" className="space-y-2 rounded-2xl border-2 border-dashed border-pos-arq bg-surface p-3">
+      <div className="flex items-center justify-between">
+        <p className="font-display text-sm font-extrabold uppercase tracking-widest text-pos-arq">Simulación · beta</p>
+        <p className="text-xs text-muted">{speed > 1 ? `El reloj corre ×${speed}` : "Tiempo real"}</p>
+      </div>
+      <div role="group" aria-label="Velocidad" className="grid grid-cols-4 gap-1.5">
+        {SIM_SPEEDS.map((v) => (
+          <button
+            key={v}
+            onClick={() => onSpeed(v)}
+            aria-pressed={v === speed}
+            className={`min-h-10 rounded-lg font-display text-sm font-bold ${v === speed ? "bg-pos-arq text-background" : "bg-raised"}`}
+          >
+            ×{v}
+          </button>
+        ))}
+      </div>
+      <div className="grid grid-cols-3 gap-1.5">
+        <button disabled={!running} onClick={() => onJump(MIN)} className="min-h-10 rounded-lg bg-raised font-display text-sm font-bold disabled:opacity-30">
+          +1&apos;
+        </button>
+        <button disabled={!running} onClick={() => onJump(5 * MIN)} className="min-h-10 rounded-lg bg-raised font-display text-sm font-bold disabled:opacity-30">
+          +5&apos;
+        </button>
+        {nextChangeMs !== null && (timeLeftMs === null || nextChangeMs < timeLeftMs) ? (
+          <button
+            disabled={!running}
+            onClick={() => onJump(nextChangeMs)}
+            className="min-h-10 rounded-lg bg-raised font-display text-sm font-bold disabled:opacity-30"
+          >
+            Próx. cambio
+          </button>
+        ) : (
+          <button
+            disabled={!running || timeLeftMs === null}
+            onClick={() => timeLeftMs !== null && onJump(timeLeftMs)}
+            className="min-h-10 rounded-lg bg-raised font-display text-sm font-bold disabled:opacity-30"
+          >
+            Fin del tiempo
+          </button>
+        )}
+      </div>
+      {!running && <p className="text-xs text-muted">Adelantar funciona con el tiempo en juego.</p>}
+    </section>
   );
 }
