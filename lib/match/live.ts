@@ -1,4 +1,4 @@
-import type { PlanLock, RotationConfig, RotationInput, RotationPlayer } from "@/lib/rotation";
+import { planRotation, type PlanLock, type RotationConfig, type RotationInput, type RotationPlayer } from "@/lib/rotation";
 import { deriveMatch, minutesByPlayer, type MatchState } from "./derive";
 import { effectiveEvents, type MatchEvent } from "./events";
 
@@ -96,4 +96,27 @@ export function liveRotationInput({ config, squad, goalkeeperId, locks, events, 
     },
     state,
   };
+}
+
+/**
+ * Cambios que corresponden a la ventana que empezó en `boundaryMin` (RF-17, §6.4).
+ * Se calculan con el estado del inicio de la ventana —sin los cambios que el DT hizo
+ * después—, así la sugerencia queda fija durante toda la ventana aunque se confirmen de a uno,
+ * y se descartan los que ya se hicieron (o que ya no se pueden hacer).
+ * Devuelve también el plan recalculado con el estado actual, para lo que viene después.
+ */
+export function windowSuggestions(args: Omit<LiveInputArgs, "nowMs">, boundaryMin: number) {
+  const atMs = boundaryMin * MIN;
+  const before = args.events.filter((e) => !(e.type === "sub" && e.matchTimeMs >= atMs - 1));
+  const pinned = planRotation(liveRotationInput({ ...args, events: before, nowMs: atMs }).input);
+  const { input, state } = liveRotationInput({ ...args, nowMs: atMs });
+  const plan = planRotation(input);
+  const subs = (pinned.windows[0]?.subs ?? []).filter(
+    (s) =>
+      !state.onField.has(s.inId) &&
+      s.inId !== state.goalkeeperId &&
+      !state.injured.has(s.inId) &&
+      (s.outId === null ? state.onField.size < args.config.playersOnField - 1 : state.onField.has(s.outId)),
+  );
+  return { subs, plan, state };
 }

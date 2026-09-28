@@ -74,7 +74,7 @@ export function PlannerDemo() {
       </header>
 
       <section className="mb-4 grid grid-cols-2 gap-3 rounded-2xl border border-border bg-surface p-4">
-        <Stepper label="En cancha" value={onField} options={[5, 7, 8, 9, 11]} onChange={setOnField} />
+        <Stepper label="En cancha" value={onField} options={[5, 6, 7, 8, 9, 10, 11]} onChange={setOnField} />
         <Stepper
           label="Jugadores"
           value={squad.length - 1}

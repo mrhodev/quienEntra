@@ -2,7 +2,7 @@
 
 > Documento base para desarrollo guiado por especificación (spec-driven development).
 > Cada requisito tiene un ID (`RF-xx`, `RNF-xx`) para referenciarlo desde issues, commits y tests.
-> Versión 1.4 · 2026-09-27
+> Versión 1.5 · 2026-09-27
 
 ---
 
@@ -73,7 +73,7 @@ Es un SaaS multiusuario: cualquier DT puede registrarse y crear sus equipos.
 ### 4.3 Torneos
 - **RF-07** CRUD de torneos por equipo: nombre y fechas de inicio y fin (opcionales).
 - **RF-08** Configuración por defecto del torneo, heredada por cada partido y editable en él:
-  - Modalidad: jugadores en cancha (N).
+  - Modalidad: jugadores por equipo **contando al arquero** (N), de 5 a 11 (por ejemplo, 10 = arquero + 9 de campo).
   - Períodos: cantidad y minutos de cada uno.
   - Formación de referencia: cantidad de DEF/MED/DEL en cancha (ej. F7: 1 ARQ + 2-3-1). Opcional.
   - Longitud de ventana de cambio *b*, en minutos (default: 5).
@@ -140,7 +140,10 @@ Es un SaaS multiusuario: cualquier DT puede registrarse y crear sus equipos.
   - Única excepción: el jugador tiene menos minutos disponibles que el mínimo (llegó muy tarde o se lesionó antes de entrar). En ese caso juega todos los minutos que tenga disponibles.
   - En vivo, si un presente todavía no entró y el tiempo restante se acerca a su mínimo, su entrada se sugiere con prioridad máxima.
 - **RF-39** **Reingresos permitidos**: un jugador que sale puede volver a entrar las veces que sea necesario.
-- **RF-40** **Rotación escalonada y de corrido.** Cada jugador juega sus minutos de la forma más continua posible (idealmente un solo stint; a lo sumo dos: uno al principio y otro al final), y los cambios se reparten a lo largo del partido de a uno o dos por ventana, para que el equipo nunca se renueve entero de golpe. El entretiempo es una ventana de cambio más: no se cambia el equipo completo.
+- **RF-40** **Un solo tramo por jugador.** Cada jugador juega todos sus minutos **de corrido**: nadie sale y vuelve a entrar. La única excepción es el mínimo garantizado (RF-38), que está por encima: si alguien salió sin llegar a su mínimo, puede volver.
+  - Los cambios se escalonan: **nunca cambia más de la mitad de la cancha en una misma ventana** (o el límite de cambios del torneo, si es menor), salvo que no alcancen las ventanas para que entren todos. El entretiempo es una ventana más.
+  - *Costo, elegido a conciencia (v1.5)*: con un solo tramo, cada puesto es una cadena de jugadores que dura el partido entero. Los minutos quedan menos parejos que repartiendo en varios tramos. Por ejemplo, en F7 2×25 con 13 de campo quedan entre 15' y 30' (con varios tramos, 20–25'). Y si hay menos suplentes que titulares, alguien tiene que jugar el partido completo: F7 con 11 de campo → 1 juega los 50'.
+  - El algoritmo anterior (a lo sumo dos tramos, minutos más parejos) queda en el motor con `continuous: false`, sin opción en la interfaz.
 
 ### 4.7 Offline y sincronización
 - **RF-32** La app se instala como **PWA** y funciona sin conexión para: ver plantel y torneo, crear y jugar un partido, y registrar todos sus eventos.
@@ -211,7 +214,15 @@ type RotationInput = {
 6. **Piso garantizado**: `T_i ≥ min(guaranteedMinutes, disponibles_i)` para todo jugador del pool. Se aplica después del paso 4. El excedente se descuenta proporcionalmente de quienes están por encima del piso.
 7. Todos los minutos se miden en **tiempo de juego efectivo**: el cronómetro pausado no suma.
 
-### 6.3 Planificación por ventanas (algoritmo greedy)
+### 6.3 Planificación
+
+**Un solo tramo por jugador (por defecto, `lib/rotation/continuous.ts`, RF-40).** Con un tramo por jugador, cada lugar de la cancha es una **cadena** de jugadores que se pasan el puesto (A → B → C), y cada cadena dura exactamente lo que queda del partido. El plan se arma en dos fases:
+1. **Armar las cadenas.** Cada cadena tiene una posición (la de la formación, o en vivo la de quien la encabeza). Los jugadores se reparten en las cadenas con búsqueda local (mover o canjear jugadores entre cadenas). Dentro de cada cadena, los minutos se reparten parejo: el total final de cada uno es `λ·T_i`, sin bajar de su mínimo garantizado ni del stint mínimo. El objetivo es `Σ ((minutos_i − T_i)/b)² + 0.15 · costo de posición`, más penalidades por mínimo garantizado sin cubrir, bloqueos "en cancha" incumplidos y lugares vacíos.
+2. **Ubicar los cambios en el tiempo, globalmente.** Cada cambio va a la ventana más cercana a su minuto ideal que tenga lugar, sin superar el tope por ventana: la mitad de la cancha, o el límite del torneo, salvo que no alcancen las ventanas para que entren todos. Si una ventana quedó por encima del tope, se repara corriendo uno o dos cambios. Por último, un ajuste fino corre cambios hasta dos ventanas si mejora la equidad y el escalonado (`0.02 · cambios²` por ventana).
+- Respeta la disponibilidad (llegadas tarde, lesiones, arquero), los bloqueos "en el banco" (duros) y los "en cancha" (con penalidad, y un aviso `LOCK_CONFLICT` si no se pueden cumplir).
+- **En vivo**, quien está en cancha encabeza su cadena. Quien ya jugó y salió no vuelve, salvo para llegar al mínimo garantizado.
+
+**Alternativa: planificación por ventanas (algoritmo greedy, `continuous: false`)**, que permite hasta dos tramos por jugador y prioriza minutos parejos:
 Se divide el partido en ventanas `[t_k, t_{k+1})` de longitud *b*. Siempre hay un corte al inicio de cada período, así que la última ventana de un período puede ser más corta.
 
 Para cada ventana *k* (desde `nowMin`):
@@ -262,17 +273,19 @@ type RotationPlan = {
 - **Lesión**: el jugador sale al instante y deja de estar disponible; el lugar vacío se completa con prioridad en la ventana en curso (CA-05).
 
 ### 6.5 Criterios de aceptación del motor
-- **CA-R1**: con un pool homogéneo, todos disponibles todo el partido y sin locks, `maxSpread ≤ b`.
+- **CA-R1** *(greedy, `continuous: false`)*: con un pool homogéneo, todos disponibles todo el partido y sin locks, `maxSpread ≤ b`.
 - **CA-R2**: `Σ expectedMinutes (campo) = (N − 1) · D` en todo plan.
 - **CA-R3**: nunca se asignan minutos a un jugador fuera de su disponibilidad.
 - **CA-R4**: ningún stint planificado es menor que `minStintMinutes`, salvo en el último tramo de un período o por lesión.
 - **CA-R5**: con α = 0 el resultado no depende de `tournamentRatio`. Con α > 0, entre dos jugadores idénticos, el de menor `r` recibe al menos los mismos minutos.
 - **CA-R6**: la función es determinista: la misma entrada produce la misma salida (desempates por `id`).
-- **CA-R9**: con un pool homogéneo, todos disponibles todo el partido, `minStintMinutes = b` y sin locks, ningún jugador tiene más de dos stints (seguir en cancha tras el entretiempo no corta el stint).
-- **CA-R10**: en las mismas condiciones, ninguna ventana (salvo la formación inicial) tiene más de `⌈P·b / D⌉` entradas.
+- **CA-R9** *(greedy)*: con un pool homogéneo, todos disponibles todo el partido, `minStintMinutes = b` y sin locks, ningún jugador tiene más de dos stints (seguir en cancha tras el entretiempo no corta el stint).
+- **CA-R10** *(greedy)*: en las mismas condiciones, ninguna ventana (salvo la formación inicial) tiene más de `⌈P·b / D⌉` entradas.
 - **CA-R8**: todo jugador del pool tiene `expectedMinutes ≥ min(guaranteedMinutes, disponibles)`, cualquiera sea α, el valor de `tournamentRatio` y los bloqueos. Si los bloqueos lo hacen imposible, el motor devuelve un error de validación que identifica al jugador.
 - **CA-R7**: rendimiento por debajo de 20 ms para 25 jugadores, D = 80 y b = 2 en un móvil de gama media.
-- Se exigen tests unitarios y *property-based tests* (fast-check) para CA-R1 a CA-R6 y CA-R8 a CA-R10.
+- **CA-R11** *(un solo tramo)*: con un pool homogéneo, ningún jugador tiene más de un tramo, y ninguna ventana (salvo la formación inicial) tiene más cambios que la mitad de la cancha, salvo que no alcancen las ventanas para que entren todos.
+- **CA-R12** *(un solo tramo)*: con P jugadores de campo y S lugares, las cadenas tienen ⌊P/S⌋ o ⌈P/S⌉ jugadores, así que los minutos van de D/⌈P/S⌉ a D/⌊P/S⌋. El plan queda dentro de ese rango, con dos ventanas de margen para redondear y escalonar.
+- Se exigen tests unitarios y *property-based tests* (fast-check) para CA-R1 a CA-R6 y CA-R8 a CA-R12.
 
 ---
 
@@ -407,10 +420,11 @@ Navegación inferior con 4 tabs: **Partido** · **Plantel** · **Estadísticas**
 
 ## 9. Criterios de aceptación (flujos clave)
 
-**CA-01 Plan equitativo**
-- Dado un torneo F7 (N = 7, 2×25 min, b = 5) con 12 presentes y el arquero fijo,
+**CA-01 Plan equitativo y de corrido**
+- Dado un torneo F7 (N = 7, 2×25 min, b = 5) con 13 presentes y el arquero fijo,
 - cuando genero el plan,
-- entonces cada jugador de campo tiene entre 25 y 30 minutos previstos (M = 300 entre 11 jugadores ≈ 27,3) y la formación se respeta en cada ventana siempre que haya jugadores de la posición.
+- entonces cada jugador de campo juega un solo tramo, entre 20 y 30 minutos, nunca cambian más de 3 jugadores juntos y la formación se respeta en cada ventana siempre que haya jugadores de la posición.
+- Y con 12 presentes (11 de campo), uno juega el partido entero: es el límite de un solo tramo con menos suplentes que titulares (RF-40).
 
 **CA-02 Compensación del torneo**
 - Dado α = 0.5 y un jugador que en el torneo jugó el 60 % de su cuota justa,

@@ -19,6 +19,11 @@ export interface RotationConfig {
   equityWeight: number;
   /** Si los minutos de arquero entran en el reparto equitativo. */
   goalkeeperRotates: boolean;
+  /**
+   * Un solo tramo por jugador (RF-40, por defecto): nadie sale y vuelve a entrar, salvo para
+   * llegar al mínimo garantizado. `false` usa el greedy por ventanas, que prioriza minutos parejos.
+   */
+  continuous?: boolean;
 }
 
 export interface RotationPlayer {

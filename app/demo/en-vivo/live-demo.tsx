@@ -199,7 +199,7 @@ export function LiveDemo() {
       {!started && (
         <section className="mb-4 rounded-2xl border border-border bg-surface p-4">
           <div className="mb-4 grid grid-cols-2 gap-3">
-            <Stepper label="En cancha" value={onFieldN} options={[5, 7, 8, 9, 11]} onChange={setOnFieldN} />
+            <Stepper label="En cancha" value={onFieldN} options={[5, 6, 7, 8, 9, 10, 11]} onChange={setOnFieldN} />
             <Stepper
               label="Jugadores"
               value={squadN}

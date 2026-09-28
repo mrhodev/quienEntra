@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MatchEvent, MatchEventPayload } from "@/lib/match/events";
-import { liveRotationInput, type SquadEntry } from "@/lib/match/live";
+import { liveRotationInput, windowSuggestions, type SquadEntry } from "@/lib/match/live";
 import { planRotation, type RotationPlayer } from "@/lib/rotation";
 import { F7 } from "@/lib/rotation/test-utils";
 import { availableMs, matchPlayerStats } from "./match";
@@ -166,7 +166,7 @@ describe("sugerencias en vivo durante una ventana", () => {
     })),
   ];
 
-  it("a mitad de la ventana siguen las mismas sugerencias y, una vez hechas, desaparecen", async () => {
+  it("durante la ventana siguen las mismas sugerencias y, una vez hechas, desaparecen", async () => {
     const { currentBoundaryMin } = await import("@/lib/match/boundary");
     const args = { config: F7, squad, goalkeeperId: "gk", locks: [] };
     const pre = planRotation(liveRotationInput({ ...args, events: [], nowMs: 0 }).input);
@@ -174,15 +174,18 @@ describe("sugerencias en vivo durante una ventana", () => {
     add(0, { type: "lineup_set", goalkeeperId: "gk", field: pre.windows[0].field });
     add(0, { type: "period_start", periodIndex: 0 });
 
-    const at = (min: number) => {
-      const b = currentBoundaryMin(F7, min);
-      return planRotation(liveRotationInput({ ...args, events, nowMs: b * MIN }).input).windows[0].subs;
-    };
-    const at5 = at(5);
-    expect(at5.length).toBeGreaterThan(0);
-    expect(at(6.5)).toEqual(at5);
+    const at = (min: number) => windowSuggestions({ ...args, events }, currentBoundaryMin(F7, min)).subs;
+    // Primera ventana con cambios del plan (los titulares juegan hasta ahí).
+    const t = pre.windows.find((w) => w.subs.length > 0)!.startMin;
+    const atT = at(t);
+    expect(atT.length).toBeGreaterThan(0);
+    expect(at(t + 1.5)).toEqual(atT);
 
-    for (const s of at5) add(6.5, { type: "sub", outId: s.outId, inId: s.inId, position: s.position });
-    expect(at(7)).toEqual([]);
+    // Confirmar de a uno: los que quedan siguen siendo los mismos; al final, no queda ninguno.
+    const [first, ...rest] = atT;
+    add(t + 1.5, { type: "sub", outId: first.outId, inId: first.inId, position: first.position });
+    expect(at(t + 1.6)).toEqual(rest);
+    for (const s of rest) add(t + 2, { type: "sub", outId: s.outId, inId: s.inId, position: s.position });
+    expect(at(t + 2.5)).toEqual([]);
   });
 });

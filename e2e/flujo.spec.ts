@@ -59,10 +59,13 @@ test("del login al resumen, con cambios sugeridos, sin conexión y vista públic
   await page.getByRole("button", { name: "Empezar partido" }).click();
   await page.getByRole("button", { name: /Empezar 1º tiempo/ }).click();
   await expect(page.getByRole("button", { name: /Pausar/ })).toBeVisible();
-  await page.clock.fastForward("05:01");
 
-  // Sugerencia a los 5': cambiar quién entra y confirmar (RF-17).
-  const card = page.getByText(/Cambios sugeridos · 5'/);
+  // Primera sugerencia de cambio (con un solo tramo por jugador, llega cerca del entretiempo).
+  const card = page.getByText(/Cambios sugeridos · \d+'/);
+  for (let i = 0; i < 12 && !(await card.isVisible()); i++) {
+    await page.clock.fastForward("01:00");
+    await page.waitForTimeout(150);
+  }
   await expect(card).toBeVisible();
   await shot(page, "4-vivo-sugerencia");
   await page.getByRole("button", { name: "Cambiar" }).nth(1).click();
@@ -77,13 +80,14 @@ test("del login al resumen, con cambios sugeridos, sin conexión y vista públic
   await expect(page.getByText(/^1\s*–\s*0$/)).toBeVisible();
 
   // CA-04: al recargar la página el cronómetro sigue donde estaba.
+  const minuteBefore = (await page.getByText(/^\d\d:\d\d$/).first().innerText()).slice(0, 2);
   await page.reload();
-  await expect(page.getByText(/^05:\d\d$/)).toBeVisible();
+  await expect(page.getByText(new RegExp(`^${minuteBefore}:\\d\\d$`)).first()).toBeVisible();
   await expect(page.getByText(/^1\s*–\s*0$/)).toBeVisible();
 
   // Sin conexión desde acá hasta el final (CA-03).
   await page.context().setOffline(true);
-  await page.clock.fastForward("05:00");
+  await page.clock.fastForward("10:00");
   await page.getByRole("button", { name: "Terminar tiempo" }).click();
   await page.getByRole("button", { name: /Empezar 2º tiempo/ }).click();
   await expect(page.getByRole("button", { name: /Pausar/ })).toBeVisible();
@@ -112,10 +116,12 @@ test("del login al resumen, con cambios sugeridos, sin conexión y vista públic
     ["goal_for", "lineup_set", "match_end", "period_end", "period_start", "period_start", "sub"].sort(),
   );
   const stats = await rest<{ field_seconds: number }[]>(`match_player_stats?select=field_seconds&match_id=eq.${match.id}`);
-  // 6 de campo × 20' (más los segundos reales que pasaron entre acciones del test).
+  // Los minutos de campo suman 6 jugadores × la duración efectiva del partido (CA-R2).
+  const [end] = await rest<{ match_time_ms: number }[]>(
+    `match_events?select=match_time_ms&match_id=eq.${match.id}&type=eq.match_end`,
+  );
   const fieldSeconds = stats.reduce((a, s) => a + s.field_seconds, 0);
-  expect(fieldSeconds).toBeGreaterThanOrEqual(6 * 20 * 60);
-  expect(fieldSeconds).toBeLessThan(6 * 21 * 60);
+  expect(Math.abs(fieldSeconds - (6 * end.match_time_ms) / 1000)).toBeLessThanOrEqual(6);
 
   // Estadísticas del DT.
   await page.getByRole("link", { name: /Estadísticas/ }).click();
@@ -189,7 +195,7 @@ test("RF-41: modo simulación, el partido completo con el reloj acelerado", asyn
 
   // Adelantar hasta el próximo cambio: aparece la sugerencia.
   await sim.getByRole("button", { name: "Próx. cambio" }).click();
-  await expect(page.getByText(/Cambios sugeridos · 5'/)).toBeVisible();
+  await expect(page.getByText(/Cambios sugeridos · \d+'/)).toBeVisible();
   await page.getByRole("button", { name: "Confirmar todos" }).or(page.getByRole("button", { name: "Confirmar", exact: true })).first().click();
 
   // Fin del primer tiempo, segundo tiempo y fin del partido, sin esperar.

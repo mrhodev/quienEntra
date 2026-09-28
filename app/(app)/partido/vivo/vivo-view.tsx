@@ -20,9 +20,10 @@ import { clockAt, formatClock } from "@/lib/match/clock";
 import { jump, SIM_SPEEDS, simNow, withSpeed, type SimClock } from "@/lib/match/sim";
 import { minutesByPlayer } from "@/lib/match/derive";
 import { effectiveEvents, type MatchEvent, type MatchEventPayload } from "@/lib/match/events";
-import { alternativesIn, alternativesOut, dueSubs, withIn, withOut, type Candidate, type SwapContext } from "@/lib/match/suggestions";
+import { windowSuggestions } from "@/lib/match/live";
+import { alternativesIn, alternativesOut, withIn, withOut, type Candidate, type SwapContext } from "@/lib/match/suggestions";
 import { toMatchEvent } from "@/lib/match/rows";
-import { planRotation, type FieldPosition, type Substitution } from "@/lib/rotation";
+import type { FieldPosition, Substitution } from "@/lib/rotation";
 
 const MIN = 60_000;
 const ORDER: Record<FieldPosition, number> = { DEF: 0, MED: 1, DEL: 2 };
@@ -90,10 +91,13 @@ export function LiveMatch() {
   const boundary = config ? currentBoundaryMin(config, elapsedMin) : 0;
 
   // Plan recalculado al inicio de la ventana en curso (ver lib/match/boundary.ts).
+  // Las sugerencias de la ventana se fijan con el estado de su inicio (lib/match/live.ts).
   const live = useMemo(() => {
     if (data.loading) return null;
-    const { input, state } = data.inputAt(boundary * MIN);
-    return { plan: planRotation(input), state };
+    return windowSuggestions(
+      { config: data.match!.config, squad: data.squad, goalkeeperId: data.goalkeeperId, locks: data.locks, events: data.events },
+      boundary,
+    );
   }, [data, boundary]);
 
   // Marcador en el partido (lo que muestra la lista de partidos).
@@ -106,7 +110,7 @@ export function LiveMatch() {
   }, [match, goalsFor, goalsAgainst]);
 
   // Sugerencias de la ventana: las editadas por el DT reemplazan a las del motor.
-  const due = live && !live.state.ended ? dueSubs(live.plan) : [];
+  const due = live && !live.state.ended ? live.subs : [];
   const keyOf = (s: Substitution) => `${boundary}:${s.outId}>${s.inId}`;
   const pairs = due
     .map((s) => ({ key: keyOf(s), sub: edits.get(keyOf(s)) ?? s, original: s }))

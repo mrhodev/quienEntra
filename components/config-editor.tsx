@@ -10,6 +10,7 @@ export const FORMATIONS: Record<number, Record<FieldPosition, number>> = {
   7: { DEF: 2, MED: 3, DEL: 1 },
   8: { DEF: 3, MED: 3, DEL: 1 },
   9: { DEF: 3, MED: 3, DEL: 2 },
+  10: { DEF: 3, MED: 4, DEL: 2 },
   11: { DEF: 4, MED: 4, DEL: 2 },
 };
 
@@ -43,9 +44,9 @@ export function ConfigEditor({
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
         <Stepper
-          label="Jugadores en cancha"
+          label="Jugadores por equipo (con arquero)"
           value={value.playersOnField}
-          options={[5, 6, 7, 8, 9, 11]}
+          options={[5, 6, 7, 8, 9, 10, 11]}
           onChange={(n) => set({ playersOnField: n, formation: FORMATIONS[n] })}
         />
         <Stepper
